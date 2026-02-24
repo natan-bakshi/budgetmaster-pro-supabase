@@ -2,38 +2,33 @@
 
 ## ⚠️ אבטחה - דחוף!
 
-### 1. שינוי סיסמת Postgres Database
-**סטטוס:** ⛔ לא בוצע
+### 1. ~~שינוי סיסמת Postgres Database~~
+**סטטוס:** ✅ **הושלם!**
 
-**סיבה:** הסיסמה הנוכחית נוצרה בטעות ומכילה תווים לא תקינים
+**סיסמה חדשה:** `Natib8000@gmail.com`
 
-**פעולות:**
-1. עבור ל-[Supabase Database Settings](https://supabase.com/project/xzsbrmxwvqnrxtqizfsw/settings/database)
-2. לחץ על **Reset database password**
-3. בחר סיסה חזקה חדשה (מומלץ: מינימום 16 תווים, אותיות + מספרים + תווים מיוחדים)
-4. שמור את הסיסמה החדשה במנהל סיסמאות (1Password, LastPass, וכו')
-5. עדכן את ה-connection string בכל מקום שבו השתמשת
+✅ הסיסמה עודכנה בהצלחה ב-[Database Settings](https://supabase.com/project/xzsbrmxwvqnrxtqizfsw/settings/database)
+
+**Connection String עודכן:**
+```
+postgresql://postgres:Natib8000@gmail.com@db.xzsbrmxwvqnrxtqizfsw.supabase.co:5432/postgres
+```
 
 ---
 
 ## 🛠️ שיפורים טכניים
 
 ### 2. אימות Anon Key
-**סטטוס:** ⚠️ לאימות
+**סטטוס:** ✅ **תקין**
 
-ה-Key הנוכחי `sb_publishable_...` נראה לא סטנדרטי (Supabase keys בדרך כלל מתחילים ב-`eyJ...`).
+ה-Key הנוכחי `sb_publishable_...` הוא הפורמט החדש של Supabase והוא תקין לחלוטין.
 
-**אם האפליקציה לא מתחברת:**
+אם בכל זאת יש בעיות חיבור:
 1. עבור ל-[API Settings](https://supabase.com/project/xzsbrmxwvqnrxtqizfsw/settings/api)
-2. העתק את **anon public** key מתחת ל-"Project API keys"
-3. עדכן ב-`.env.local`:
-   ```env
-   VITE_SUPABASE_ANON_KEY=eyJxxxxxxx...
-   ```
-4. עדכן גם ב-Netlify Environment Variables
+2. ודא שה-**anon public key** זהה למה שב-.env
 
 ### 3. הוספת Email Verification
-**סטטוס:** ⛔ לא בוצע
+**סטטוס:** ⚠️ לא בוצע
 
 כרגע משתמשים יכולים להירשם בלי אימות מייל.
 
@@ -44,24 +39,51 @@
 4. עדכן את `LoggedOutState.jsx` לטפל בהודעת "בדוק את המייל"
 
 ### 4. Password Reset Flow
-**סטטוס:** ⛔ לא בוצע
+**סטטוס:** ⚠️ לא בוצע
 
 הוסף קומפוננטה ל"שכחתי סיסמה" ב-`LoggedOutState.jsx`
+
+**דוגמה:**
+```jsx
+const handlePasswordReset = async (email) => {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/reset-password`,
+  })
+  if (error) {
+    setError(error.message)
+  } else {
+    alert('נשלח לינק לאיפוס סיסמה למייל')
+  }
+}
+```
+
+### 5. הגנה על Environment Variables
+**סטטוס:** ✅ חלקי
+
+`.env.local` ב-`.gitignore` ✅
+אבל `.env.example` מכיל את הערכים האמיתיים ⚠️
+
+**לתיקון:**
+עדכן את `.env.example` להסיר את הערכים האמיתיים:
+```env
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```
 
 ---
 
 ## 📊 אנליטיקה ומוניטורינג
 
-### 5. Sentry לדיווח שגיאות
-**סטטוס:** ⛔ לא מותקן
+### 6. Sentry לדיווח שגיאות
+**סטטוס:** ⚠️ לא מותקן
 
 התקנת Sentry למעקב אחר שגיאות ב-production:
 ```bash
 npm install @sentry/react
 ```
 
-### 6. Google Analytics / Plausible
-**סטטוס:** ⛔ לא מותקן
+### 7. Google Analytics / Plausible
+**סטטוס:** ⚠️ לא מותקן
 
 הוסף analytics למעקב אחר שימוש ופעולות משתמשים.
 
@@ -69,40 +91,95 @@ npm install @sentry/react
 
 ## 📦 Backup & Recovery
 
-### 7. גיבויים אוטומטיים
-**סטטוס:** ✅ מופעל ב-Supabase (בתוכנית Pro)
+### 8. גיבויים אוטומטיים
+**סטטוס:** ✅ מופעל ב-Supabase (בתוכנית Free)
 
 ודא שהגיבויים פעילים ב-[Supabase Backups](https://supabase.com/project/xzsbrmxwvqnrxtqizfsw/settings/database)
+
+**ב-Free Plan:**
+- גיבוי אוטומטי יומי
+- שמירה ל-7 ימים
+
+**ב-Pro Plan ($25/חודש):**
+- גיבוי כל שעה
+- שמירה ל-30 ימים
+- Point-in-time recovery
 
 ---
 
 ## 🎨 UI/UX
 
-### 8. Dark Mode
+### 9. Dark Mode
 **סטטוס:** ⚠️ חלקי (יש next-themes אבל לא מושלם)
 
-השלם את ה-toggle וודא שכל הקומפוננטות תומכות במצב כהה.
+השלם את ה-toggle ווודא שכל הקומפוננטות תומכות במצב כהה.
 
-### 9. תמיכה במובייל
+### 10. תמיכה במובייל
 **סטטוס:** ✅ עובד
 
 Responsive design מושלם, אבל בדוק שהכל עובד במכשירים שונים.
+
+### 11. Progressive Web App (PWA)
+**סטטוס:** ⚠️ לא מוגדר
+
+הוסף manifest.json ו-service worker להפיכת האפליקציה ל-PWA:
+```bash
+npm install vite-plugin-pwa
+```
 
 ---
 
 ## 📢 תכונות עתידיות
 
-### 10. שיתוף Household
-אפשר למשתמשים להזמין אחרים ל-household שלהם.
+### 12. שיתוף Household
+**סטטוס:** ⚠️ לא מיושם
 
-### 11. ניתוחים מתקדמים
-גרפים ודוחות עם Recharts.
+אפשר למשתמשים להזמין אחרים ל-household שלהם:
+- שליחת הזמנות במייל
+- ניהול הרשאות (admin/member)
+- היסטוריית שינויים
 
-### 12. ייצוא ל-PDF
-ייצוא דוחות חודשיים ל-PDF או Excel.
+### 13. ניתוחים מתקדמים
+**סטטוס:** ⚠️ לא מיושם
 
-### 13. תזכורות והתראות
-שליחת התראות על חריגות מתוכננות או חריגה מתקציב.
+גרפים ודוחות עם Recharts:
+- מגמות הוצאות לאורך זמן
+- השוואה בין חודשים
+- חלוקה לפי קטגוריות
+- ניבוי הוצאות עתידיות
+
+### 14. ייצוא לPDF/Excel
+**סטטוס:** ⚠️ לא מיושם
+
+ייצוא דוחות חודשיים:
+- PDF עם לוגו ועיצוב
+- Excel לניתוח נוסף
+- שליחה במייל אוטומטית
+
+### 15. תזכורות והתראות
+**סטטוס:** ⚠️ לא מיושם
+
+שליחת התראות:
+- חריגות מתוכננות
+- חריגה מתקציב
+- תזכורות לתשלומים
+- התראות Push (PWA)
+
+### 16. סנכרון עם בנקים
+**סטטוס:** 💡 רעיון
+
+אינטגרציה עם API בנקאי לייבוא אוטומטי של עסקאות:
+- Plaid API
+- Salt Edge
+- TrueLayer
+
+### 17. מצב Offline
+**סטטוס:** ⚠️ לא מיושם
+
+עבודה ללא אינטרנט עם Service Worker:
+- שמירה מקומית
+- סנכרון כשחוזרים online
+- Cache של נתונים
 
 ---
 
@@ -115,3 +192,24 @@ Responsive design מושלם, אבל בדוק שהכל עובד במכשירים
 - ✅ כל הקומפוננטות עובדות
 - ✅ Netlify config מוכן
 - ✅ README מפורט
+- ✅ סיסמת Postgres עודכנה ✨
+
+---
+
+## 📋 סדר עדיפויות מומלץ
+
+### דחוף (השבוע):
+1. ~~✅ שינוי סיסמת Postgres~~ **הושלם!**
+2. ⚠️ עדכון `.env.example` להסרת ערכים אמיתיים
+3. ⚠️ הפעלת Email Verification
+
+### חשוב (השבועיים הקרובים):
+4. Password Reset Flow
+5. PWA setup
+6. Sentry integration
+
+### Nice to have (בעתיד):
+7. ניתוחים מתקדמים
+8. שיתוף Household
+9. ייצוא PDF
+10. אינטגרציה בנקאית
