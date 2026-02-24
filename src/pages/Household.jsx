@@ -144,7 +144,8 @@ export default function HouseholdPage() {
     
     setIsAddingMember(true);
     try {
-      const existingUsers = await User.filter({ email: newMemberEmail.trim() });
+      // Use RPC to find user by email (bypasses RLS safely)
+      const existingUsers = await User.findByEmail(newMemberEmail.trim());
       if (existingUsers.length === 0) {
         alert('משתמש עם המייל הזה לא נמצא. המשתמש צריך להתחבר לפחות פעם אחת לאפליקציה.');
         setIsAddingMember(false);
@@ -157,13 +158,14 @@ export default function HouseholdPage() {
         setIsAddingMember(false);
         return;
       }
-       if (userToAdd.householdId === currentUser.householdId) {
+      if (userToAdd.householdId === currentUser.householdId) {
         alert('המשתמש כבר חבר במשק הבית.');
         setIsAddingMember(false);
         return;
       }
       
-      await User.update(userToAdd.id, { 
+      // Use adminUpdate RPC to update another user's profile
+      await User.adminUpdate(userToAdd.id, { 
         householdId: currentUser.householdId,
         role: 'member'
       });
@@ -181,10 +183,17 @@ export default function HouseholdPage() {
   const removeMember = async (memberId) => {
     if (confirm('האם אתה בטוח שברצונך להסיר את המשתמש ממשק הבית?')) {
       try {
-        // Create a new personal household for the removed user
         const removedUser = members.find(m => m.id === memberId);
-        const personalHousehold = await Household.create({ name: `${removedUser.full_name}'s Personal Space`, resetDay: 1 });
-        await User.update(memberId, { householdId: personalHousehold.id, role: 'admin' });
+        // Create a new personal household for the removed user
+        const personalHousehold = await Household.create({ 
+          name: `${removedUser.full_name}'s Personal Space`, 
+          resetDay: 1 
+        });
+        // Use adminUpdate RPC (bypasses RLS for cross-user update)
+        await User.adminUpdate(memberId, { 
+          householdId: personalHousehold.id, 
+          role: 'admin' 
+        });
         refetchData();
       } catch (error) {
         console.error("Failed to remove member:", error);
@@ -194,13 +203,14 @@ export default function HouseholdPage() {
   };
 
   const changeRole = async (memberId, newRole) => {
-     try {
-        await User.update(memberId, { role: newRole });
-        refetchData();
-      } catch (error) {
-        console.error("Failed to change role:", error);
-        alert('שגיאה בשינוי ההרשאה.');
-      }
+    try {
+      // Use adminUpdate RPC (bypasses RLS for cross-user update)
+      await User.adminUpdate(memberId, { role: newRole });
+      refetchData();
+    } catch (error) {
+      console.error("Failed to change role:", error);
+      alert('שגיאה בשינוי ההרשאה.');
+    }
   }
   
   const handleResetDayChange = async (newDay) => {
@@ -226,6 +236,7 @@ export default function HouseholdPage() {
             alert("קוד משק בית לא תקין או לא קיים.");
             throw new Error("Invalid household ID");
         }
+        // Self-update: user joins a household themselves (RLS allows auth.uid() = id)
         await User.updateMyUserData({ 
             householdId: joinId,
             role: 'member'
@@ -399,7 +410,7 @@ export default function HouseholdPage() {
                 <div key={member.id} className="flex flex-col sm:flex-row items-center justify-between p-4 bg-slate-50 rounded-lg">
                   <div className="flex items-center gap-4 mb-4 sm:mb-0">
                     <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                      {member.full_name.charAt(0)}
+                      {member.full_name ? member.full_name.charAt(0) : '?'}
                     </div>
                     <div>
                       <p className="font-semibold text-slate-800">{member.full_name}</p>
