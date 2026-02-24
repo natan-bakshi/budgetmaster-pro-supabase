@@ -51,7 +51,7 @@ export default function Dashboard() {
   };
 
   const checkForMonthlyReset = async (userId, householdId, currentUser) => {
-    if (!householdId) return;
+    if (!householdId) return 1;
     
     try {
       const household = await Household.get(householdId);
@@ -71,7 +71,7 @@ export default function Dashboard() {
       const lastCheck = lastResetCheck ? new Date(lastResetCheck) : null;
       const shouldCheck = !lastCheck || (now - lastCheck) > 24 * 60 * 60 * 1000;
 
-      if (!shouldCheck) return;
+      if (!shouldCheck) return resetDay;
 
       const today = new Date();
       if (today >= periodStart) {
@@ -113,8 +113,10 @@ export default function Dashboard() {
         await User.updateMyUserData({ lastResetCheck: now.toISOString() });
         await executeScheduledTransactions(householdId, resetDay);
       }
+      return resetDay;
     } catch (error) {
       console.error('Error during monthly reset check:', error);
+      return 1;
     }
   };
 
@@ -180,6 +182,8 @@ export default function Dashboard() {
 
       await Promise.all(instancesToCreate.map(instance => CategoryInstance.create(instance)));
     }
+
+    return missingCategories.length > 0;
   };
 
   const loadData = useCallback(async (currentUser) => {
@@ -189,9 +193,7 @@ export default function Dashboard() {
       const householdId = currentUser.householdId;
       
       if (householdId) {
-        await checkForMonthlyReset(userId, householdId, currentUser);
-        const household = await Household.get(householdId);
-        const resetDay = household.resetDay || 1;
+        const resetDay = await checkForMonthlyReset(userId, householdId, currentUser) || 1;
         const { start: periodStart } = calculateBudgetPeriod(resetDay);
         const currentMonth = format(periodStart, 'yyyy-MM');
 
@@ -204,8 +206,10 @@ export default function Dashboard() {
         const expenseCategories = fetchedCategories.filter(c => c.type === 'expense');
         setCategories({ income: incomeCategories, expense: expenseCategories });
 
-        await createMissingInstances(fetchedCategories, fetchedInstances, currentMonth, householdId);
-        const updatedInstances = await CategoryInstance.filter({ householdId, month: currentMonth });
+        const hadMissingInstances = await createMissingInstances(fetchedCategories, fetchedInstances, currentMonth, householdId);
+        const updatedInstances = hadMissingInstances
+          ? await CategoryInstance.filter({ householdId, month: currentMonth })
+          : fetchedInstances;
         setCategoryInstances(updatedInstances);
         
         setCurrentBudgetPeriod({

@@ -110,20 +110,6 @@ export default function Layout({ children, currentPageName }) {
     <div className="min-h-screen bg-slate-50" dir="rtl">
       <style>
         {`
-          :root {
-            --primary: #3B82F6;
-            --primary-hover: #2563EB;
-            --success: #10B981;
-            --danger: #EF4444;
-            --warning: #F59E0B;
-            --info: #06B6D4;
-            --surface: #FFFFFF;
-            --background: #F8FAFC;
-            --text-primary: #1E293B;
-            --text-secondary: #64748B;
-            --border: #E2E8F0;
-          }
-
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
           * {
@@ -146,12 +132,12 @@ export default function Layout({ children, currentPageName }) {
           }
 
           .menu-item:hover {
-            background: var(--primary);
+            background: #3B82F6;
             color: white;
           }
 
           .menu-item.active {
-            background: var(--primary);
+            background: #3B82F6;
             color: white;
           }
         `}
