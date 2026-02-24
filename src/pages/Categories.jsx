@@ -61,14 +61,12 @@ export default function Categories() {
   };
 
   const addCategory = async (categoryData) => {
-    // strip showNotes - column does not exist in Supabase
-    const { showNotes, ...cleanData } = categoryData;
     try {
       if (editingCategory) {
-        await Category.update(editingCategory.id, cleanData);
+        await Category.update(editingCategory.id, categoryData);
       } else {
         const newCategory = {
-          ...cleanData,
+          ...categoryData,
           householdId: user.householdId,
           order: categories[dialogType].length,
           currentAmount: 0,

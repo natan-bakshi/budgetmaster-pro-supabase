@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 export default function AddCategoryDialog({ 
   open, 
@@ -17,7 +18,8 @@ export default function AddCategoryDialog({
     name: '',
     defaultAmount: '',
     accountId: null,
-    executionDate: ''
+    executionDate: '',
+    showNotes: false
   });
 
   useEffect(() => {
@@ -26,10 +28,11 @@ export default function AddCategoryDialog({
         name: editingCategory.name || '',
         defaultAmount: editingCategory.defaultAmount || '',
         accountId: editingCategory.accountId || null,
-        executionDate: editingCategory.executionDate || ''
+        executionDate: editingCategory.executionDate || '',
+        showNotes: editingCategory.showNotes || false
       });
     } else {
-      setCategoryData({ name: '', defaultAmount: '', accountId: null, executionDate: '' });
+      setCategoryData({ name: '', defaultAmount: '', accountId: null, executionDate: '', showNotes: false });
     }
   }, [editingCategory, open]);
 
@@ -47,7 +50,7 @@ export default function AddCategoryDialog({
   };
 
   const handleClose = () => {
-    setCategoryData({ name: '', defaultAmount: '', accountId: null, executionDate: '' });
+    setCategoryData({ name: '', defaultAmount: '', accountId: null, executionDate: '', showNotes: false });
     onClose();
   };
 
@@ -131,6 +134,15 @@ export default function AddCategoryDialog({
             </Select>
           </div>
 
+          <div className="flex items-center space-x-2 space-x-reverse">
+            <Switch
+              id="showNotes"
+              checked={categoryData.showNotes}
+              onCheckedChange={(checked) => setCategoryData({ ...categoryData, showNotes: checked })}
+            />
+            <Label htmlFor="showNotes" className="text-slate-700">הצג שדה הערות</Label>
+          </div>
+          
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={handleClose}>
               ביטול
