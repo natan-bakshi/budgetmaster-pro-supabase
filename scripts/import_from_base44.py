@@ -12,10 +12,8 @@ Base44 → Supabase Import Script
 """
 
 import csv
-import uuid
 import sys
 import os
-from datetime import datetime, timezone
 
 try:
     from supabase import create_client, Client
@@ -26,53 +24,50 @@ except ImportError:
 
 
 # ============================================================
-# הגדרות - מלא את הערכים הנכונים לפני הרצה
+# הגדרות - מלא רק את שני הערכים הבאים
 # ============================================================
 
+# Supabase Project URL → Supabase > Settings > API > Project URL
 SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co"
 
-# Service Role Key (לא anon key!) - מ-Supabase > Settings > API
+# Service Role Key → Supabase > Settings > API > service_role (לא anon!)
 SUPABASE_SERVICE_KEY = "YOUR_SERVICE_ROLE_KEY_HERE"
 
-# ה-UUID של ה-household שלך ב-Supabase
-# מצא בעזרת: SELECT id FROM households LIMIT 1;
-NEW_HOUSEHOLD_ID = "YOUR_SUPABASE_HOUSEHOLD_UUID"
-
-# ה-UUID של החשבון הבנקאי הראשי שלך ב-Supabase
-# מצא בעזרת: SELECT id, name FROM accounts;
-# אם אין לך חשבון עדיין - צור אחד דרך האפליקציה ואז הכנס את ה-UUID כאן
-NEW_ACCOUNT_ID = "YOUR_SUPABASE_ACCOUNT_UUID"
+# כבר מוכנס - אל תשנה
+NEW_HOUSEHOLD_ID = "7a6f6a91-bdaa-4f8f-bcd6-d9aaf3487c3c"
 
 # ============================================================
 
-OLD_HOUSEHOLD_ID = "6847fb32e5efa3c07cf153cf"
 OLD_ACCOUNT_ID = "6847fd2e2daa32d500f8b146"
 
 CSV_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def read_csv(filename):
-    path = os.path.join(CSV_DIR, filename)
-    if not os.path.exists(path):
-        # חפש גם בתיקייה הנוכחית
-        path = filename
-    if not os.path.exists(path):
-        print(f"ERROR: File not found: {filename}")
-        sys.exit(1)
-    with open(path, 'r', encoding='utf-8') as f:
-        return list(csv.DictReader(f))
+    # חפש בתיקיית הסקריפט ובתיקייה הנוכחית
+    for path in [os.path.join(CSV_DIR, filename), filename]:
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                return list(csv.DictReader(f))
+    print(f"ERROR: File not found: {filename}")
+    print(f"\nוודא שהקבצים הבאים נמצאים באותה תיקייה כמו הסקריפט:")
+    print("  Category_export.csv")
+    print("  CategoryInstance_export.csv")
+    print("  MonthlyHistory_export.csv")
+    print("  Transaction_export.csv")
+    sys.exit(1)
 
 
 def safe_float(val, default=0.0):
     try:
-        return float(val) if val and val.strip() else default
+        return float(val) if val and str(val).strip() else default
     except (ValueError, AttributeError):
         return default
 
 
 def safe_int(val, default=0):
     try:
-        return int(val) if val and val.strip() else default
+        return int(val) if val and str(val).strip() else default
     except (ValueError, AttributeError):
         return default
 
@@ -82,25 +77,39 @@ def safe_bool(val):
 
 
 def safe_str(val):
-    return val.strip() if val and val.strip() else None
+    s = str(val).strip() if val else ""
+    return s if s else None
 
 
 def validate_config():
     errors = []
     if "YOUR_PROJECT_ID" in SUPABASE_URL:
-        errors.append("SUPABASE_URL - לא עודכן")
+        errors.append("SUPABASE_URL")
     if "YOUR_SERVICE_ROLE_KEY" in SUPABASE_SERVICE_KEY:
-        errors.append("SUPABASE_SERVICE_KEY - לא עודכן")
-    if "YOUR_SUPABASE_HOUSEHOLD_UUID" in NEW_HOUSEHOLD_ID:
-        errors.append("NEW_HOUSEHOLD_ID - לא עודכן")
-    if "YOUR_SUPABASE_ACCOUNT_UUID" in NEW_ACCOUNT_ID:
-        errors.append("NEW_ACCOUNT_ID - לא עודכן")
+        errors.append("SUPABASE_SERVICE_KEY")
     if errors:
-        print("\n❌ יש להגדיר את הערכים הבאים בסקריפט:")
+        print("\n❌ יש למלא את הערכים הבאים בסקריפט:")
         for e in errors:
             print(f"   • {e}")
-        print("\nפתח את הסקריפט ומלא את הערכים בחלק ה-'הגדרות' בראש הקובץ.")
         sys.exit(1)
+
+
+def get_account_id(sb):
+    """חיפש אוטומטי של ה-account הראשון ב-Supabase"""
+    result = sb.table("accounts") \
+        .select("id, name") \
+        .eq("household_id", NEW_HOUSEHOLD_ID) \
+        .execute()
+
+    if result.data:
+        acc = result.data[0]
+        print(f"  ✅ Account found: '{acc['name']}' ({acc['id'][:8]}...)")
+        return acc["id"]
+    else:
+        print("  ⚠️  לא נמצא חשבון ב-Supabase.")
+        print("  צור חשבון דרך האפליקציה (דף 'מבט לחשבון') ואחר כך הרץ שוב.")
+        print("  לעת זאת הקטגוריות והיסטוריה ייבאו עם account_id=null")
+        return None
 
 
 def main():
@@ -108,18 +117,21 @@ def main():
 
     print("\n🔌 Connecting to Supabase...")
     sb: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    print("✅ Connected\n")
+    print("✅ Connected")
+
+    print("\n🔍 Detecting account ID...")
+    NEW_ACCOUNT_ID = get_account_id(sb)
 
     # --------------------------------------------------------
     # שלב 1: Categories
     # --------------------------------------------------------
-    print("📂 Importing Categories...")
+    print("\n📂 Importing Categories...")
     category_rows = read_csv("Category_export.csv")
-    category_id_map = {}  # base44_id -> new_uuid
+    category_id_map = {}  # base44_id → new_supabase_uuid
 
     for row in category_rows:
         old_id = row["id"]
-        account_id = NEW_ACCOUNT_ID if row.get("accountId") == OLD_ACCOUNT_ID else safe_str(row.get("accountId"))
+        account_id = NEW_ACCOUNT_ID if row.get("accountId") == OLD_ACCOUNT_ID else safe_str(row.get("accountId")) or NEW_ACCOUNT_ID
 
         record = {
             "name": row["name"],
@@ -132,7 +144,6 @@ def main():
             "household_id": NEW_HOUSEHOLD_ID,
         }
 
-        # בדוק אם כבר קיים
         existing = sb.table("categories") \
             .select("id") \
             .eq("household_id", NEW_HOUSEHOLD_ID) \
@@ -142,27 +153,26 @@ def main():
         if existing.data:
             new_id = existing.data[0]["id"]
             category_id_map[old_id] = new_id
-            print(f"  ⏭  {row['name']} (קיים → {new_id[:8]}...)")
+            print(f"  ⏭  {row['name']} (קיים)")
         else:
             result = sb.table("categories").insert(record).execute()
             if result.data:
                 new_id = result.data[0]["id"]
                 category_id_map[old_id] = new_id
-                print(f"  ✅ {row['name']} → {new_id[:8]}...")
+                print(f"  ✅ {row['name']}")
             else:
-                print(f"  ❌ נכשל לייבא: {row['name']}")
+                print(f"  ❌ {row['name']}: {result}")
 
-    print(f"\n✅ Categories: {len(category_id_map)} mapped\n")
+    print(f"\n  ✓ {len(category_id_map)} categories ready")
 
     # --------------------------------------------------------
     # שלב 2: MonthlyHistory
     # --------------------------------------------------------
-    print("📅 Importing MonthlyHistory...")
+    print("\n📅 Importing MonthlyHistory...")
     history_rows = read_csv("MonthlyHistory_export.csv")
     history_count = 0
 
     for row in history_rows:
-        # בדוק אם חודש זה כבר קיים
         existing = sb.table("monthly_history") \
             .select("id") \
             .eq("household_id", NEW_HOUSEHOLD_ID) \
@@ -186,27 +196,24 @@ def main():
             print(f"  ✅ {row['month']}")
             history_count += 1
         else:
-            print(f"  ❌ נכשל: {row['month']}")
+            print(f"  ❌ {row['month']}: {result}")
 
-    print(f"\n✅ MonthlyHistory: {history_count} imported\n")
+    print(f"  ✓ {history_count} months imported")
 
     # --------------------------------------------------------
     # שלב 3: CategoryInstances
     # --------------------------------------------------------
-    print("📊 Importing CategoryInstances...")
+    print("\n📊 Importing CategoryInstances...")
     instance_rows = read_csv("CategoryInstance_export.csv")
     instance_count = 0
     instance_skipped = 0
 
     for row in instance_rows:
-        old_cat_id = row["categoryId"]
-        new_cat_id = category_id_map.get(old_cat_id)
-
+        new_cat_id = category_id_map.get(row["categoryId"])
         if not new_cat_id:
             instance_skipped += 1
             continue
 
-        # בדוק אם כבר קיים
         existing = sb.table("category_instances") \
             .select("id") \
             .eq("household_id", NEW_HOUSEHOLD_ID) \
@@ -229,30 +236,28 @@ def main():
         result = sb.table("category_instances").insert(record).execute()
         if result.data:
             instance_count += 1
-            if instance_count % 10 == 0:
-                print(f"  ... {instance_count} instances imported")
+            if instance_count % 20 == 0:
+                print(f"  ... {instance_count} instances")
 
-    print(f"\n✅ CategoryInstances: {instance_count} imported, {instance_skipped} skipped\n")
+    print(f"  ✓ {instance_count} instances imported, {instance_skipped} skipped")
 
     # --------------------------------------------------------
-    # שלב 4: Transactions
+    # שלב 4: Transactions (batches of 50)
     # --------------------------------------------------------
-    print("💳 Importing Transactions...")
+    print("\n💳 Importing Transactions...")
     transaction_rows = read_csv("Transaction_export.csv")
     tx_count = 0
     tx_skipped = 0
-    BATCH_SIZE = 50
     batch = []
+    BATCH_SIZE = 50
 
     for row in transaction_rows:
-        old_cat_id = row.get("categoryId", "")
-        new_cat_id = category_id_map.get(old_cat_id)
-
+        new_cat_id = category_id_map.get(row.get("categoryId", ""))
         if not new_cat_id:
             tx_skipped += 1
             continue
 
-        account_id = NEW_ACCOUNT_ID if row.get("accountId") == OLD_ACCOUNT_ID else safe_str(row.get("accountId"))
+        account_id = NEW_ACCOUNT_ID if row.get("accountId") == OLD_ACCOUNT_ID else safe_str(row.get("accountId")) or NEW_ACCOUNT_ID
 
         record = {
             "date": row["date"],
@@ -266,34 +271,31 @@ def main():
             "category_id": new_cat_id,
             "is_automatic": safe_bool(row.get("isAutomatic")),
         }
-
         batch.append(record)
 
         if len(batch) >= BATCH_SIZE:
-            result = sb.table("transactions").insert(batch).execute()
+            sb.table("transactions").insert(batch).execute()
             tx_count += len(batch)
             batch = []
-            print(f"  ... {tx_count} transactions imported")
+            print(f"  ... {tx_count} transactions")
 
-    # Insert remaining batch
     if batch:
-        result = sb.table("transactions").insert(batch).execute()
+        sb.table("transactions").insert(batch).execute()
         tx_count += len(batch)
 
-    print(f"\n✅ Transactions: {tx_count} imported, {tx_skipped} skipped\n")
+    print(f"  ✓ {tx_count} transactions imported, {tx_skipped} skipped")
 
     # --------------------------------------------------------
     # סיכום
     # --------------------------------------------------------
+    print("\n" + "=" * 50)
+    print("🎉 ייבוא הושלם!")
     print("=" * 50)
-    print("🎉 ייבוא הושלם בהצלחה!")
-    print("=" * 50)
-    print(f"  Categories:        {len(category_id_map)}")
-    print(f"  MonthlyHistory:    {history_count}")
-    print(f"  CategoryInstances: {instance_count}")
-    print(f"  Transactions:      {tx_count}")
-    print()
-    print("עכשיו פתח את האפליקציה - כל הדאטה צריכה להיות שם!")
+    print(f"  • Categories:        {len(category_id_map)}")
+    print(f"  • MonthlyHistory:    {history_count}")
+    print(f"  • CategoryInstances: {instance_count}")
+    print(f"  • Transactions:      {tx_count}")
+    print("\nעכשיו פתח את האפליקציה - כל הדאטה צריכה להיות שם!")
 
 
 if __name__ == "__main__":
