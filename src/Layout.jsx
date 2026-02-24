@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { User } from "@/entities/User";
-import { Household } from "@/entities/Household";
 import {
   Menu,
   X,
@@ -65,32 +64,27 @@ export default function Layout({ children, currentPageName }) {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUserAndSetup = async () => {
+    const fetchUser = async () => {
       setIsAuthLoading(true);
       try {
-        let currentUser = await User.me();
+        const currentUser = await User.me();
+        console.log('User loaded:', currentUser);
         
-        // Silent setup for new users
         if (!currentUser.householdId) {
-          const personalHousehold = await Household.create({ 
-            name: `${currentUser.full_name}'s Personal Space`,
-            resetDay: 1
-          });
-          await User.updateMyUserData({ 
-            householdId: personalHousehold.id,
-            role: 'admin' 
-          });
-          // Refetch user to get the new householdId
-          currentUser = await User.me();
+          console.error('User has no household!');
+          // Don't try to create, just show error
+          alert('שגיאה: לא ניתן לטעון את המשק בית. נסה להירשם מחדש.');
+          setUser(null);
+        } else {
+          setUser(currentUser);
         }
-        
-        setUser(currentUser);
       } catch (e) {
+        console.error('Error loading user:', e);
         setUser(null);
       }
       setIsAuthLoading(false);
     };
-    fetchUserAndSetup();
+    fetchUser();
   }, [location.pathname]);
 
   const toggleMenu = () => {
@@ -201,7 +195,7 @@ export default function Layout({ children, currentPageName }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-                  {user.full_name.charAt(0)}
+                  {user.full_name ? user.full_name.charAt(0) : 'U'}
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-slate-800 truncate">{user.full_name}</h2>
