@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 
 export default function AddCategoryDialog({ 
   open, 
@@ -18,8 +17,7 @@ export default function AddCategoryDialog({
     name: '',
     defaultAmount: '',
     accountId: null,
-    executionDate: '',
-    showNotes: false
+    executionDate: ''
   });
 
   useEffect(() => {
@@ -28,17 +26,10 @@ export default function AddCategoryDialog({
         name: editingCategory.name || '',
         defaultAmount: editingCategory.defaultAmount || '',
         accountId: editingCategory.accountId || null,
-        executionDate: editingCategory.executionDate || '',
-        showNotes: editingCategory.showNotes || false
+        executionDate: editingCategory.executionDate || ''
       });
     } else {
-      setCategoryData({
-        name: '',
-        defaultAmount: '',
-        accountId: null,
-        executionDate: '',
-        showNotes: false
-      });
+      setCategoryData({ name: '', defaultAmount: '', accountId: null, executionDate: '' });
     }
   }, [editingCategory, open]);
 
@@ -56,13 +47,7 @@ export default function AddCategoryDialog({
   };
 
   const handleClose = () => {
-    setCategoryData({
-      name: '',
-      defaultAmount: '',
-      accountId: null,
-      executionDate: '',
-      showNotes: false
-    });
+    setCategoryData({ name: '', defaultAmount: '', accountId: null, executionDate: '' });
     onClose();
   };
 
@@ -113,7 +98,7 @@ export default function AddCategoryDialog({
                   <SelectValue placeholder="שיוך לחשבון ספציפי" />
                 </SelectTrigger>
                 <SelectContent className="bg-white">
-                  <SelectItem value={null}>ללא שיוך</SelectItem>
+                  <SelectItem value="">ללא שיוך</SelectItem>
                   {accounts.map((account) => (
                     <SelectItem key={account.id} value={account.id.toString()}>
                       {account.name}
@@ -121,7 +106,7 @@ export default function AddCategoryDialog({
                   ))}
                 </SelectContent>
               </Select>
-               <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-slate-500 mt-1">
                 אם תבחר, ברירת המחדל תשוייך לחשבון זה.
               </p>
             </div>
@@ -146,15 +131,6 @@ export default function AddCategoryDialog({
             </Select>
           </div>
 
-          <div className="flex items-center space-x-2 space-x-reverse">
-            <Switch
-              id="showNotes"
-              checked={categoryData.showNotes}
-              onCheckedChange={(checked) => setCategoryData({ ...categoryData, showNotes: checked })}
-            />
-            <Label htmlFor="showNotes" className="text-slate-700">הצג שדה הערות</Label>
-          </div>
-          
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={handleClose}>
               ביטול

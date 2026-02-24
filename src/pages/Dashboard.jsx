@@ -32,9 +32,7 @@ export default function Dashboard() {
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth();
     const currentDay = today.getDate();
-    
     let periodStart, periodEnd;
-    
     if (currentDay >= resetDay) {
       periodStart = new Date(currentYear, currentMonth, resetDay);
       periodEnd = new Date(currentYear, currentMonth + 1, resetDay - 1);
@@ -42,7 +40,6 @@ export default function Dashboard() {
       periodStart = new Date(currentYear, currentMonth - 1, resetDay);
       periodEnd = new Date(currentYear, currentMonth, resetDay - 1);
     }
-    
     return { start: periodStart, end: periodEnd };
   };
 
@@ -52,46 +49,30 @@ export default function Dashboard() {
 
   const checkForMonthlyReset = async (userId, householdId, currentUser) => {
     if (!householdId) return 1;
-    
     try {
       const household = await Household.get(householdId);
       const resetDay = household.resetDay || 1;
       const lastResetCheck = currentUser.lastResetCheck;
-
       const { start: periodStart, end: periodEnd } = calculateBudgetPeriod(resetDay);
       const currentPeriodStr = getBudgetPeriodString(periodStart);
-
-      setCurrentBudgetPeriod({
-        start: periodStart,
-        end: periodEnd,
-        resetDay
-      });
-
+      setCurrentBudgetPeriod({ start: periodStart, end: periodEnd, resetDay });
       const now = new Date();
       const lastCheck = lastResetCheck ? new Date(lastResetCheck) : null;
       const shouldCheck = !lastCheck || (now - lastCheck) > 24 * 60 * 60 * 1000;
-
       if (!shouldCheck) return resetDay;
-
       const today = new Date();
       if (today >= periodStart) {
         const prevPeriodStart = new Date(periodStart);
         prevPeriodStart.setMonth(prevPeriodStart.getMonth() - 1);
         const prevPeriodStr = getBudgetPeriodString(prevPeriodStart).substring(0, 7);
-        
         const prevMonthHistory = await MonthlyHistory.filter({ householdId, month: prevPeriodStr });
         if (prevMonthHistory.length === 0) {
-          const prevMonthInstances = await CategoryInstance.filter({ 
-            householdId, 
-            month: prevPeriodStr 
-          });
-          
+          const prevMonthInstances = await CategoryInstance.filter({ householdId, month: prevPeriodStr });
           if (prevMonthInstances.length > 0) {
             let totalIncome = 0;
             let totalExpenses = 0;
-            const allCategories = await Category.filter({householdId});
+            const allCategories = await Category.filter({ householdId });
             const categoryMap = new Map(allCategories.map(c => [c.id, c]));
-
             prevMonthInstances.forEach(inst => {
               const category = categoryMap.get(inst.categoryId);
               if (category) {
@@ -99,7 +80,6 @@ export default function Dashboard() {
                 else totalExpenses += inst.currentAmount;
               }
             });
-            
             await MonthlyHistory.create({
               month: prevPeriodStr,
               totalIncome,
@@ -109,7 +89,6 @@ export default function Dashboard() {
             });
           }
         }
-        
         await User.updateMyUserData({ lastResetCheck: now.toISOString() });
         await executeScheduledTransactions(householdId, resetDay);
       }
@@ -124,25 +103,20 @@ export default function Dashboard() {
     try {
       const categories = await Category.filter({ householdId });
       const accounts = await Account.filter({ householdId });
-      
       for (const category of categories) {
         if (category.accountId && category.defaultAmount && category.defaultAmount !== 0) {
           const account = accounts.find(a => a.id === category.accountId);
           if (!account) continue;
-          
           let transactionDate = new Date();
-          
           if (category.executionDate) {
             const executionDay = parseInt(category.executionDate);
             const { start: periodStart } = calculateBudgetPeriod(resetDay);
             transactionDate = new Date(periodStart);
             transactionDate.setDate(executionDay);
-            
             if (transactionDate < periodStart) {
               transactionDate.setMonth(transactionDate.getMonth() + 1);
             }
           }
-          
           await Transaction.create({
             categoryId: category.id,
             accountId: category.accountId,
@@ -155,7 +129,6 @@ export default function Dashboard() {
             isAutomatic: true,
             isExecuted: transactionDate <= new Date()
           });
-          
           if (transactionDate <= new Date()) {
             const newBalance = account.balance + (category.type === 'expense' ? -Math.abs(category.defaultAmount) : Math.abs(category.defaultAmount));
             await Account.update(account.id, { balance: newBalance });
@@ -170,7 +143,6 @@ export default function Dashboard() {
   const createMissingInstances = async (categories, existingInstances, month, householdId) => {
     const existingCategoryIds = existingInstances.map(inst => inst.categoryId);
     const missingCategories = categories.filter(cat => !existingCategoryIds.includes(cat.id));
-
     if (missingCategories.length > 0) {
       const instancesToCreate = missingCategories.map(cat => ({
         categoryId: cat.id,
@@ -179,10 +151,8 @@ export default function Dashboard() {
         householdId,
         notes: ''
       }));
-
       await Promise.all(instancesToCreate.map(instance => CategoryInstance.create(instance)));
     }
-
     return missingCategories.length > 0;
   };
 
@@ -191,27 +161,22 @@ export default function Dashboard() {
     try {
       const userId = currentUser.id;
       const householdId = currentUser.householdId;
-      
       if (householdId) {
         const resetDay = await checkForMonthlyReset(userId, householdId, currentUser) || 1;
         const { start: periodStart } = calculateBudgetPeriod(resetDay);
         const currentMonth = format(periodStart, 'yyyy-MM');
-
         const [fetchedCategories, fetchedInstances] = await Promise.all([
           Category.filter({ householdId }, 'order'),
           CategoryInstance.filter({ householdId, month: currentMonth })
         ]);
-
         const incomeCategories = fetchedCategories.filter(c => c.type === 'income');
         const expenseCategories = fetchedCategories.filter(c => c.type === 'expense');
         setCategories({ income: incomeCategories, expense: expenseCategories });
-
         const hadMissingInstances = await createMissingInstances(fetchedCategories, fetchedInstances, currentMonth, householdId);
         const updatedInstances = hadMissingInstances
           ? await CategoryInstance.filter({ householdId, month: currentMonth })
           : fetchedInstances;
         setCategoryInstances(updatedInstances);
-        
         setCurrentBudgetPeriod({
           start: periodStart,
           end: calculateBudgetPeriod(resetDay).end,
@@ -245,23 +210,12 @@ export default function Dashboard() {
 
   const getTotals = () => {
     const totals = { income: 0, expenses: 0 };
-
-    categories.income.forEach(cat => {
-      totals.income += getCurrentAmount(cat.id);
-    });
-
-    categories.expense.forEach(cat => {
-      totals.expenses += getCurrentAmount(cat.id);
-    });
-
+    categories.income.forEach(cat => { totals.income += getCurrentAmount(cat.id); });
+    categories.expense.forEach(cat => { totals.expenses += getCurrentAmount(cat.id); });
     return totals;
   };
 
-  const reloadData = async () => {
-    if (user) {
-      await loadData(user);
-    }
-  };
+  const reloadData = async () => { if (user) await loadData(user); };
 
   if (isLoading) return <LoadingSpinner />;
   if (!user) return <LoggedOutState />;
@@ -270,14 +224,14 @@ export default function Dashboard() {
   const balance = income - expenses;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 pt-24" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4" dir="rtl">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-800 mb-2">
             ברוך הבא, {user.full_name.split(' ')[0]}
           </h1>
           <p className="text-slate-600">
-            {user.householdId ? 'זהו סיכום התקציב החודשי שלך.' : 'זהו החשבון האישי שלך. תוכל להצטרף למשק בית דרך דף "ניהול משק בית".'}
+            {user.householdId ? 'זהו סיכום התקציב החודשי שלך.' : 'זהו החשבון האישי שלך.'}
           </p>
         </div>
 

@@ -41,53 +41,49 @@ export default function Categories() {
   }, []);
 
   const loadData = async (householdId) => {
-    // Save current scroll position
     setScrollPosition(window.pageYOffset);
-    
     setIsLoading(true);
     try {
       const [allCategories, allAccounts] = await Promise.all([
         Category.filter({ householdId }, 'order'),
         Account.filter({ householdId })
       ]);
-      
       setCategories({
         income: allCategories.filter(c => c.type === 'income'),
         expense: allCategories.filter(c => c.type === 'expense')
       });
       setAccounts(allAccounts);
-
     } catch (error) {
       console.error('Error loading data:', error);
     }
     setIsLoading(false);
-    
-    // Restore scroll position
-    setTimeout(() => {
-      window.scrollTo(0, scrollPosition);
-    }, 100);
+    setTimeout(() => { window.scrollTo(0, scrollPosition); }, 100);
   };
 
   const addCategory = async (categoryData) => {
-    if (editingCategory) {
-      await Category.update(editingCategory.id, categoryData);
-    } else {
-      const newCategory = {
-        ...categoryData,
-        householdId: user.householdId,
-        order: categories[dialogType].length,
-        currentAmount: 0,
-        createdAt: new Date().toISOString()
-      };
-      await Category.create(newCategory);
+    // strip showNotes - column does not exist in Supabase
+    const { showNotes, ...cleanData } = categoryData;
+    try {
+      if (editingCategory) {
+        await Category.update(editingCategory.id, cleanData);
+      } else {
+        const newCategory = {
+          ...cleanData,
+          householdId: user.householdId,
+          order: categories[dialogType].length,
+          currentAmount: 0,
+          createdAt: new Date().toISOString()
+        };
+        await Category.create(newCategory);
+      }
+      await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
+      setShowAddDialog(false);
+      setEditingCategory(null);
+      loadData(user.householdId);
+    } catch (error) {
+      console.error('Error saving category:', error);
+      alert('שגיאה בשמירת הקטגוריה: ' + (error.message || error));
     }
-    
-    // Update user's last update time
-    await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
-    
-    setShowAddDialog(false);
-    setEditingCategory(null);
-    loadData(user.householdId);
   };
 
   const deleteCategory = async (type, categoryId) => {
@@ -100,22 +96,18 @@ export default function Categories() {
     const list = categories[type];
     const categoryIndex = list.findIndex(cat => cat.id === categoryId);
     if (categoryIndex === -1) return;
-
     const newIndex = direction === 'up' ? categoryIndex - 1 : categoryIndex + 1;
     if (newIndex < 0 || newIndex >= list.length) return;
-
     const currentCategory = list[categoryIndex];
     const otherCategory = list[newIndex];
-
     await Promise.all([
       Category.update(currentCategory.id, { order: otherCategory.order }),
       Category.update(otherCategory.id, { order: currentCategory.order })
     ]);
-    
     await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
     loadData(user.householdId);
   };
-  
+
   const handleAddCategory = (type) => {
     setDialogType(type);
     setEditingCategory(null);
@@ -154,15 +146,11 @@ export default function Categories() {
           <TabsContent value="income" className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold text-slate-800">קטגוריות הכנסות</h2>
-              <Button 
-                onClick={() => handleAddCategory('income')}
-                className="bg-green-600 hover:bg-green-700"
-              >
+              <Button onClick={() => handleAddCategory('income')} className="bg-green-600 hover:bg-green-700">
                 <Plus className="w-4 h-4 ml-2" />
                 הוסף הכנסה
               </Button>
             </div>
-            
             <CategoryList
               categories={categories.income}
               type="income"
@@ -176,15 +164,11 @@ export default function Categories() {
           <TabsContent value="expense" className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold text-slate-800">קטגוריות הוצאות</h2>
-              <Button 
-                onClick={() => handleAddCategory('expense')}
-                className="bg-red-600 hover:bg-red-700"
-              >
+              <Button onClick={() => handleAddCategory('expense')} className="bg-red-600 hover:bg-red-700">
                 <Plus className="w-4 h-4 ml-2" />
                 הוסף הוצאה
               </Button>
             </div>
-            
             <CategoryList
               categories={categories.expense}
               type="expense"
@@ -198,10 +182,7 @@ export default function Categories() {
 
         <AddCategoryDialog
           open={showAddDialog}
-          onClose={() => {
-            setShowAddDialog(false);
-            setEditingCategory(null);
-          }}
+          onClose={() => { setShowAddDialog(false); setEditingCategory(null); }}
           onAdd={addCategory}
           type={dialogType}
           accounts={accounts}
