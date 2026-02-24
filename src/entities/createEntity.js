@@ -39,10 +39,10 @@ export const createEntity = (tableName) => ({
   },
 
   async update(id, updates) {
-    const { data, error } = await supabase
-      .from(tableName).update(snakeKeys(updates)).eq('id', id).select().single()
+    const { error } = await supabase
+      .from(tableName).update(snakeKeys(updates)).eq('id', id)
     if (error) throw error
-    return camelKeys(data)
+    return this.get(id)
   },
 
   async delete(id) {
