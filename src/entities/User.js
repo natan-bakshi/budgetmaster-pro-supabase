@@ -28,6 +28,13 @@ export const User = {
     return (data || []).map(toProfile)
   },
 
+  // Find user by email using a security-definer RPC (bypasses RLS safely)
+  async findByEmail(email) {
+    const { data, error } = await supabase.rpc('find_user_by_email', { p_email: email })
+    if (error) throw error
+    return (data || []).map(toProfile)
+  },
+
   async update(id, updates) {
     const dbUpdates = {}
     if (updates.householdId !== undefined) dbUpdates.household_id = updates.householdId
@@ -37,6 +44,15 @@ export const User = {
       .from('profiles').update(dbUpdates).eq('id', id).select().single()
     if (error) throw error
     return toProfile(data)
+  },
+
+  // Admin-only: update another user's profile via security-definer RPC
+  async adminUpdate(targetId, updates) {
+    const params = { p_member_id: targetId }
+    if (updates.householdId !== undefined) params.p_household_id = updates.householdId
+    if (updates.role !== undefined) params.p_role = updates.role
+    const { error } = await supabase.rpc('update_member_profile', params)
+    if (error) throw error
   },
 
   async updateMyUserData(updates) {
