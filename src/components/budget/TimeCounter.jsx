@@ -7,7 +7,8 @@ export default function TimeCounter({ budgetPeriod }) {
   const [timeData, setTimeData] = useState({
     daysLeft: 0,
     weeksLeft: 0,
-    progress: 0
+    progress: 0,
+    nextReset: null
   });
   const [lastUpdate, setLastUpdate] = useState(null);
 
@@ -25,19 +26,39 @@ export default function TimeCounter({ budgetPeriod }) {
 
   useEffect(() => {
     const calculateTimeLeft = () => {
-      if (!budgetPeriod.start || !budgetPeriod.end) return;
-      
-      const now = new Date();
-      const endDate = budgetPeriod.end;
-      const startDate = budgetPeriod.start;
-      
-      const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-      const passedDays = Math.ceil((now - startDate) / (1000 * 60 * 60 * 24));
-      const daysLeft = Math.max(0, totalDays - passedDays);
-      const weeksLeft = Math.ceil(daysLeft / 7);
-      const progress = Math.min(100, (passedDays / totalDays) * 100);
+      if (!budgetPeriod.start || !budgetPeriod.resetDay) return;
 
-      setTimeData({ daysLeft, weeksLeft, progress });
+      const resetDay = budgetPeriod.resetDay || 1;
+      const now = new Date();
+      // Use midnight of today for clean day calculations
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const currentDay = today.getDate();
+
+      // Find the next reset date
+      let nextReset;
+      if (currentDay < resetDay) {
+        // Reset is later this month
+        nextReset = new Date(today.getFullYear(), today.getMonth(), resetDay);
+      } else {
+        // Reset is next month
+        nextReset = new Date(today.getFullYear(), today.getMonth() + 1, resetDay);
+      }
+
+      // Days left = exact days from today midnight to next reset
+      const daysLeft = Math.round((nextReset - today) / (1000 * 60 * 60 * 24));
+      const weeksLeft = Math.ceil(daysLeft / 7);
+
+      // Progress: days passed / total days in this period
+      const periodStart = new Date(
+        budgetPeriod.start.getFullYear(),
+        budgetPeriod.start.getMonth(),
+        budgetPeriod.start.getDate()
+      );
+      const totalDays = Math.round((nextReset - periodStart) / (1000 * 60 * 60 * 24));
+      const passedDays = Math.round((today - periodStart) / (1000 * 60 * 60 * 24));
+      const progress = totalDays > 0 ? Math.min(100, (passedDays / totalDays) * 100) : 0;
+
+      setTimeData({ daysLeft, weeksLeft, progress, nextReset });
     };
 
     calculateTimeLeft();
@@ -70,6 +91,11 @@ export default function TimeCounter({ budgetPeriod }) {
 
   const lastUpdateFormatted = formatLastUpdate(lastUpdate);
 
+  const formatNextReset = (date) => {
+    if (!date) return '';
+    return date.toLocaleDateString('he-IL', { day: 'numeric', month: 'long' });
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <Card className="bg-gradient-to-l from-purple-50 to-white border-purple-200 shadow-lg">
@@ -89,6 +115,12 @@ export default function TimeCounter({ budgetPeriod }) {
               <div className="text-2xl font-bold text-purple-800">{timeData.weeksLeft}</div>
               <div className="text-sm text-purple-600">שבועות</div>
             </div>
+            {timeData.nextReset && (
+              <div className="text-center">
+                <div className="text-sm font-bold text-purple-800">{formatNextReset(timeData.nextReset)}</div>
+                <div className="text-sm text-purple-600">איפוס הבא</div>
+              </div>
+            )}
           </div>
           
           <div className="w-full bg-purple-100 rounded-full h-2">
