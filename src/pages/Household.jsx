@@ -27,6 +27,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const JoinHouseholdDialog = ({ onJoin }) => {
   const [householdId, setHouseholdId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -231,21 +233,24 @@ export default function HouseholdPage() {
 
   const handleJoinHousehold = async (joinId) => {
     try {
-        const existingHousehold = await Household.get(joinId);
-        if (!existingHousehold) {
-            alert("קוד משק בית לא תקין או לא קיים.");
-            throw new Error("Invalid household ID");
-        }
-        // Self-update: user joins a household themselves (RLS allows auth.uid() = id)
-        await User.updateMyUserData({ 
-            householdId: joinId,
-            role: 'member'
-        });
-        window.location.reload();
+      // Validate UUID format client-side (avoids RLS-blocked Household.get call)
+      if (!UUID_REGEX.test(joinId)) {
+        alert("קוד משק בית לא תקין. ודא שהעתקת את הקוד בשלמותו.");
+        throw new Error("Invalid UUID format");
+      }
+      // Self-update: user joins a household (RLS allows auth.uid() = id)
+      // If household doesn't exist, FK constraint will reject it
+      await User.updateMyUserData({ 
+        householdId: joinId,
+        role: 'member'
+      });
+      window.location.reload();
     } catch (error) {
-        console.error("Error joining household:", error);
+      console.error("Error joining household:", error);
+      if (error.message !== "Invalid UUID format") {
         alert("שגיאה בהצטרפות למשק הבית. ודא שהקוד נכון ונסה שוב.");
-        throw error;
+      }
+      throw error;
     }
   };
 
