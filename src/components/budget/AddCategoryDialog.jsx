@@ -6,19 +6,20 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
-export default function AddCategoryDialog({ 
-  open, 
-  onClose, 
-  onAdd, 
-  type, 
-  accounts, 
-  editingCategory 
+export default function AddCategoryDialog({
+  open,
+  onClose,
+  onAdd,
+  type,
+  accounts,
+  editingCategory
 }) {
   const [categoryData, setCategoryData] = useState({
     name: '',
     defaultAmount: '',
     executionDate: '',
-    showNotes: false
+    showNotes: false,
+    allowAccumulate: false,
   });
 
   useEffect(() => {
@@ -27,27 +28,27 @@ export default function AddCategoryDialog({
         name: editingCategory.name || '',
         defaultAmount: editingCategory.defaultAmount || '',
         executionDate: editingCategory.executionDate || '',
-        showNotes: editingCategory.showNotes || false
+        showNotes: editingCategory.showNotes || false,
+        allowAccumulate: editingCategory.allowAccumulate || false,
       });
     } else {
-      setCategoryData({ name: '', defaultAmount: '', executionDate: '', showNotes: false });
+      setCategoryData({ name: '', defaultAmount: '', executionDate: '', showNotes: false, allowAccumulate: false });
     }
   }, [editingCategory, open]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (categoryData.name.trim()) {
-      const dataToSave = {
+      onAdd({
         ...categoryData,
         defaultAmount: parseFloat(categoryData.defaultAmount) || 0,
-        type: type,
-      };
-      onAdd(dataToSave);
+        type,
+      });
     }
   };
 
   const handleClose = () => {
-    setCategoryData({ name: '', defaultAmount: '', executionDate: '', showNotes: false });
+    setCategoryData({ name: '', defaultAmount: '', executionDate: '', showNotes: false, allowAccumulate: false });
     onClose();
   };
 
@@ -61,7 +62,7 @@ export default function AddCategoryDialog({
             {editingCategory ? 'ערוך קטגוריה' : `הוסף ${type === 'income' ? 'הכנסה' : 'הוצאה'} חדשה`}
           </DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="name" className="text-slate-700 dark:text-slate-300">שם הקטגוריה</Label>
@@ -74,7 +75,7 @@ export default function AddCategoryDialog({
               required
             />
           </div>
-          
+
           <div>
             <Label htmlFor="defaultAmount" className="text-slate-700 dark:text-slate-300">סכום ברירת מחדל</Label>
             <Input
@@ -106,6 +107,7 @@ export default function AddCategoryDialog({
             </Select>
           </div>
 
+          {/* showNotes toggle */}
           <div className="flex items-center space-x-2 space-x-reverse">
             <Switch
               id="showNotes"
@@ -114,13 +116,23 @@ export default function AddCategoryDialog({
             />
             <Label htmlFor="showNotes" className="text-slate-700 dark:text-slate-300">הצג שדה הערות</Label>
           </div>
-          
+
+          {/* allowAccumulate toggle */}
+          <div className="flex items-center space-x-2 space-x-reverse">
+            <Switch
+              id="allowAccumulate"
+              checked={categoryData.allowAccumulate}
+              onCheckedChange={(checked) => setCategoryData({ ...categoryData, allowAccumulate: checked })}
+            />
+            <Label htmlFor="allowAccumulate" className="text-slate-700 dark:text-slate-300">מצב צבירה – הוסף לסכום קיים</Label>
+          </div>
+
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={handleClose} className="dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
               ביטול
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className={type === 'income' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
             >
               {editingCategory ? 'עדכן' : 'הוסף'}

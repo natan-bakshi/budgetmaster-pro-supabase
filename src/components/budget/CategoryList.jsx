@@ -2,14 +2,14 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUp, ArrowDown, Edit, Trash2, Calendar, DollarSign } from "lucide-react";
+import { ArrowUp, ArrowDown, Edit, Trash2, Calendar, DollarSign, PlusCircle } from "lucide-react";
 
-export default function CategoryList({ 
-  categories, 
-  type, 
-  accounts, 
-  onEdit, 
-  onDelete, 
+export default function CategoryList({
+  categories,
+  type,
+  accounts,
+  onEdit,
+  onDelete,
   onMove
 }) {
   const handleDelete = (categoryId) => {
@@ -43,8 +43,7 @@ export default function CategoryList({
               <CardTitle className="text-lg dark:text-slate-100">{category.name}</CardTitle>
               <div className="flex gap-2">
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="outline" size="sm"
                   onClick={() => onMove(type, category.id, 'up')}
                   disabled={index === 0}
                   className="dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700 disabled:dark:opacity-40"
@@ -52,8 +51,7 @@ export default function CategoryList({
                   <ArrowUp className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="outline" size="sm"
                   onClick={() => onMove(type, category.id, 'down')}
                   disabled={index === categories.length - 1}
                   className="dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700 disabled:dark:opacity-40"
@@ -61,16 +59,14 @@ export default function CategoryList({
                   <ArrowDown className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="outline" size="sm"
                   onClick={() => onEdit(type, category)}
                   className="dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                 >
                   <Edit className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="outline" size="sm"
                   onClick={() => handleDelete(category.id)}
                   className="text-red-600 dark:text-red-400 dark:border-slate-600 dark:hover:bg-slate-700"
                 >
@@ -86,7 +82,6 @@ export default function CategoryList({
                 ₪{(category.defaultAmount || 0).toLocaleString()}
               </div>
             </div>
-
             <div className="flex flex-wrap gap-2">
               {category.executionDate && (
                 <Badge variant="outline" className="flex items-center gap-1 dark:border-slate-600 dark:text-slate-300">
@@ -95,8 +90,12 @@ export default function CategoryList({
                 </Badge>
               )}
               {category.showNotes && (
-                <Badge variant="outline" className="dark:border-slate-600 dark:text-slate-300">
-                  יש הערות
+                <Badge variant="outline" className="dark:border-slate-600 dark:text-slate-300">יש הערות</Badge>
+              )}
+              {category.allowAccumulate && (
+                <Badge variant="outline" className="flex items-center gap-1 text-blue-600 border-blue-300 dark:text-blue-400 dark:border-blue-700">
+                  <PlusCircle className="w-3 h-3" />
+                  מצב צבירה
                 </Badge>
               )}
             </div>

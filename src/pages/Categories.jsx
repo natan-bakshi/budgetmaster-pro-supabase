@@ -20,7 +20,6 @@ export default function Categories() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogType, setDialogType] = useState('income');
   const [editingCategory, setEditingCategory] = useState(null);
-  // Show spinner only on first visit when there is no cached data
   const [isLoading, setIsLoading] = useState(() => !cachedUser || !cachedCats);
   const [activeTab, setActiveTab] = useState('income');
   const [scrollPosition, setScrollPosition] = useState(0);
@@ -30,7 +29,6 @@ export default function Categories() {
       try {
         const hadCachedUser = !!appCache.getUser();
         const hadCachedCats = !!appCache.getCategoriesData();
-
         let currentUser;
         if (hadCachedUser && !appCache.isStale()) {
           currentUser = appCache.getUser();
@@ -39,9 +37,7 @@ export default function Categories() {
           appCache.setUser(currentUser);
         }
         setUser(currentUser);
-
         if (currentUser && currentUser.householdId) {
-          // silent = already showing cached data → no spinner
           await loadData(currentUser.householdId, hadCachedUser && hadCachedCats);
         } else {
           setIsLoading(false);
@@ -163,12 +159,13 @@ export default function Categories() {
           </TabsList>
 
           <TabsContent value="income" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">קטגוריות הכנסות</h2>
-              <Button onClick={() => handleAddCategory('income')} className="bg-green-600 hover:bg-green-700">
+            {/* Button above title on mobile, side-by-side on desktop */}
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+              <Button onClick={() => handleAddCategory('income')} className="bg-green-600 hover:bg-green-700 sm:order-2 w-full sm:w-auto">
                 <Plus className="w-4 h-4 ml-2" />
                 הוסף הכנסה
               </Button>
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 sm:order-1">קטגוריות הכנסות</h2>
             </div>
             <CategoryList
               categories={categories.income}
@@ -181,12 +178,12 @@ export default function Categories() {
           </TabsContent>
 
           <TabsContent value="expense" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">קטגוריות הוצאות</h2>
-              <Button onClick={() => handleAddCategory('expense')} className="bg-red-600 hover:bg-red-700">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+              <Button onClick={() => handleAddCategory('expense')} className="bg-red-600 hover:bg-red-700 sm:order-2 w-full sm:w-auto">
                 <Plus className="w-4 h-4 ml-2" />
                 הוסף הוצאה
               </Button>
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 sm:order-1">קטגוריות הוצאות</h2>
             </div>
             <CategoryList
               categories={categories.expense}

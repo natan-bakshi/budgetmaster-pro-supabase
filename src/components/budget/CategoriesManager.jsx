@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { CategoryInstance } from '@/entities/CategoryInstance';
 import { User } from '@/entities/User';
 import { appCache } from '@/appCache';
@@ -7,148 +7,205 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, TrendingDown, Save, RotateCcw } from "lucide-react";
+import { TrendingUp, TrendingDown, Save, RotateCcw, Check } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AccumulateRow – inline +₪ adder, no dialog, no extra clutter
+// ─────────────────────────────────────────────────────────────────────────────
+function AccumulateRow({ currentAmount, onAdd }) {
+  const [addValue, setAddValue] = useState('');
+  const [adding, setAdding] = useState(false);
+  const inputRef = useRef(null);
+
+  const handleConfirm = async () => {
+    const delta = parseFloat(addValue);
+    if (!delta || isNaN(delta)) return;
+    setAdding(true);
+    await onAdd(delta);
+    setAddValue('');
+    setAdding(false);
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleConfirm();
+    if (e.key === 'Escape') setAddValue('');
+  };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-dashed border-slate-200 dark:border-slate-600">
+      <p className="text-xs text-slate-400 dark:text-slate-500 mb-1.5">
+        הוסף לסכום הקיים – הקלד סכום ולחץ ✓ (ניתן לחזור כמה פעמים)
+      </p>
+      <div className="flex items-center gap-1.5">
+        <span className="text-sm font-medium text-slate-500 dark:text-slate-400 shrink-0">+₪</span>
+        <Input
+          ref={inputRef}
+          type="number"
+          min="0"
+          value={addValue}
+          onChange={(e) => setAddValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="0"
+          className="h-8 text-sm dark:bg-slate-600 dark:border-slate-500 dark:text-slate-100"
+        />
+        <Button
+          size="sm"
+          disabled={!addValue || adding}
+          onClick={handleConfirm}
+          className="h-8 w-8 p-0 bg-emerald-500 hover:bg-emerald-600 text-white shrink-0"
+          aria-label="הוסף לסכום"
+        >
+          <Check className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CategoryEntry
+// ─────────────────────────────────────────────────────────────────────────────
 const CategoryEntry = ({ category, instance, onOptimisticUpdate, onUpdate }) => {
-    const [amount, setAmount] = useState(instance.currentAmount.toString());
-    const [notes, setNotes] = useState(instance.notes || '');
-    const [isSaving, setIsSaving] = useState(false);
+  const [amount, setAmount] = useState(instance.currentAmount.toString());
+  const [notes, setNotes] = useState(instance.notes || '');
+  const [isSaving, setIsSaving] = useState(false);
 
-    // Sync local state when instance prop changes (from optimistic updates by other components)
-    useEffect(() => {
-        setAmount(instance.currentAmount.toString());
-        setNotes(instance.notes || '');
-    }, [instance.currentAmount, instance.notes]);
+  useEffect(() => {
+    setAmount(instance.currentAmount.toString());
+    setNotes(instance.notes || '');
+  }, [instance.currentAmount, instance.notes]);
 
-    const hasUnsavedChanges = amount !== instance.currentAmount.toString() || notes !== (instance.notes || '');
-    const isModifiedFromDefault = instance.currentAmount !== (category.defaultAmount || 0) || (instance.notes || '') !== '';
+  const hasUnsavedChanges = amount !== instance.currentAmount.toString() || notes !== (instance.notes || '');
+  const isModifiedFromDefault = instance.currentAmount !== (category.defaultAmount || 0) || (instance.notes || '') !== '';
 
-    const handleSave = async () => {
-        const newAmount = parseFloat(amount) || 0;
-        const newNotes = notes;
-        setIsSaving(true);
+  const persistSave = async (newAmount, newNotes) => {
+    try {
+      await CategoryInstance.update(instance.id, { currentAmount: newAmount, notes: newNotes });
+      const now = new Date().toISOString();
+      User.updateMyUserData({ lastUpdateTime: now }).catch(console.error);
+    } catch (error) {
+      console.error('Error saving category:', error);
+      onUpdate();
+    }
+  };
 
-        // 1. Optimistic update – update UI immediately
-        onOptimisticUpdate({ instanceId: instance.id, newAmount, newNotes });
+  const handleSave = async () => {
+    const newAmount = parseFloat(amount) || 0;
+    const newNotes  = notes;
+    setIsSaving(true);
+    onOptimisticUpdate({ instanceId: instance.id, newAmount, newNotes });
+    await persistSave(newAmount, newNotes);
+    setIsSaving(false);
+  };
 
-        try {
-            // 2. Persist category instance to server
-            await CategoryInstance.update(instance.id, {
-                currentAmount: newAmount,
-                notes: newNotes
-            });
-            // 3. Persist lastUpdateTime to profiles table (reliable, proven path)
-            //    Fire-and-forget – UI already updated optimistically
-            const now = new Date().toISOString();
-            User.updateMyUserData({ lastUpdateTime: now }).catch(console.error);
-        } catch (error) {
-            console.error('Error saving category:', error);
-            // On error: roll back by reloading from server
-            onUpdate();
-        }
-        setIsSaving(false);
-    };
+  const handleReset = async () => {
+    const newAmount = category.defaultAmount || 0;
+    const newNotes  = '';
+    onOptimisticUpdate({ instanceId: instance.id, newAmount, newNotes });
+    await persistSave(newAmount, newNotes);
+  };
 
-    const handleReset = async () => {
-        const newAmount = category.defaultAmount || 0;
-        const newNotes = '';
+  // Accumulate: add delta on top of CURRENT server-synced amount
+  const handleAccumulate = async (delta) => {
+    const newAmount = (parseFloat(instance.currentAmount) || 0) + delta;
+    const newNotes  = instance.notes || '';
+    onOptimisticUpdate({ instanceId: instance.id, newAmount, newNotes });
+    await persistSave(newAmount, newNotes);
+  };
 
-        // Optimistic update
-        onOptimisticUpdate({ instanceId: instance.id, newAmount, newNotes });
+  const handleAmountFocus = (e) => e.target.select();
+  const handleNotesFocus  = (e) => e.target.select();
+  const isIncome = category.type === 'income';
 
-        try {
-            await CategoryInstance.update(instance.id, {
-                currentAmount: newAmount,
-                notes: newNotes
-            });
-            // Persist lastUpdateTime to profiles table (fire and forget)
-            const now = new Date().toISOString();
-            User.updateMyUserData({ lastUpdateTime: now }).catch(console.error);
-        } catch (error) {
-            console.error('Error resetting category:', error);
-            onUpdate();
-        }
-    };
+  return (
+    <Card className="bg-slate-50 dark:bg-slate-700 dark:border-slate-600">
+      <CardHeader className="pb-3">
+        <div className="flex justify-between items-start">
+          <div className="flex items-center gap-2">
+            {isIncome
+              ? <TrendingUp  className="w-5 h-5 text-green-600 dark:text-green-400" />
+              : <TrendingDown className="w-5 h-5 text-red-600   dark:text-red-400"   />}
+            <div>
+              <div className="font-semibold dark:text-slate-100">{category.name}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                ברירת מחדל: ₪{(category.defaultAmount || 0).toLocaleString()}
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {hasUnsavedChanges && (
+              <Button
+                size="sm"
+                onClick={handleSave}
+                className="bg-blue-600 hover:bg-blue-700"
+                disabled={isSaving}
+              >
+                <Save className="w-4 h-4" />
+                {isSaving ? 'שומר...' : ''}
+              </Button>
+            )}
+            {isModifiedFromDefault && !hasUnsavedChanges && (
+              <Button size="sm" variant="outline" onClick={handleReset}
+                className="text-orange-600 hover:text-orange-700 dark:border-slate-500 dark:hover:bg-slate-600">
+                <RotateCcw className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+        {isModifiedFromDefault && !hasUnsavedChanges && (
+          <Badge variant="outline" className="w-fit text-xs dark:border-slate-500 dark:text-slate-300">
+            שונה מברירת מחדל
+          </Badge>
+        )}
+      </CardHeader>
 
-    const handleAmountFocus = (e) => { e.target.select(); };
-    const handleNotesFocus  = (e) => { e.target.select(); };
+      <CardContent className="space-y-3">
+        <div>
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">סכום לחודש זה</label>
+          <Input
+            type="number"
+            value={amount}
+            placeholder={(category.defaultAmount || 0).toString()}
+            onChange={(e) => setAmount(e.target.value)}
+            className={`text-lg font-semibold dark:bg-slate-600 dark:border-slate-500 dark:text-slate-100
+              ${isIncome ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}
+            onFocus={handleAmountFocus}
+          />
+        </div>
 
-    const isIncome = category.type === 'income';
+        {category.showNotes && (
+          <div>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">הערות</label>
+            <Textarea
+              value={notes}
+              placeholder="הערות לחודש זה..."
+              onChange={(e) => setNotes(e.target.value)}
+              className="h-20 dark:bg-slate-600 dark:border-slate-500 dark:text-slate-100 dark:placeholder-slate-400"
+              onFocus={handleNotesFocus}
+            />
+          </div>
+        )}
 
-    return (
-        <Card className="bg-slate-50 dark:bg-slate-700 dark:border-slate-600">
-            <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-2">
-                        {isIncome ?
-                            <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400"/> :
-                            <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400"/>
-                        }
-                        <div>
-                            <div className="font-semibold dark:text-slate-100">{category.name}</div>
-                            <div className="text-xs text-slate-500 dark:text-slate-400">
-                                ברירת מחדל: ₪{(category.defaultAmount || 0).toLocaleString()}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
-                        {hasUnsavedChanges && (
-                            <Button
-                                size="sm"
-                                onClick={handleSave}
-                                className="bg-blue-600 hover:bg-blue-700"
-                                disabled={isSaving}
-                            >
-                                <Save className="w-4 h-4" />
-                                {isSaving ? 'שומר...' : ''}
-                            </Button>
-                        )}
-                        {isModifiedFromDefault && !hasUnsavedChanges && (
-                            <Button size="sm" variant="outline" onClick={handleReset} className="text-orange-600 hover:text-orange-700 dark:border-slate-500 dark:hover:bg-slate-600">
-                                <RotateCcw className="w-4 h-4" />
-                            </Button>
-                        )}
-                    </div>
-                </div>
-                {isModifiedFromDefault && !hasUnsavedChanges && (
-                    <Badge variant="outline" className="w-fit text-xs dark:border-slate-500 dark:text-slate-300">שונה מברירת מחדל</Badge>
-                )}
-            </CardHeader>
-            <CardContent className="space-y-3">
-                <div>
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">סכום לחודש זה</label>
-                    <Input
-                        type="number"
-                        value={amount}
-                        placeholder={(category.defaultAmount || 0).toString()}
-                        onChange={(e) => setAmount(e.target.value)}
-                        className={`text-lg font-semibold dark:bg-slate-600 dark:border-slate-500 dark:text-slate-100 ${isIncome ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}
-                        onFocus={handleAmountFocus}
-                    />
-                </div>
-
-                {category.showNotes && (
-                    <div>
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">הערות</label>
-                        <Textarea
-                            value={notes}
-                            placeholder="הערות לחודש זה..."
-                            onChange={(e) => setNotes(e.target.value)}
-                            className="h-20 dark:bg-slate-600 dark:border-slate-500 dark:text-slate-100 dark:placeholder-slate-400"
-                            onFocus={handleNotesFocus}
-                        />
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-    );
+        {/* Accumulate row – shown only when feature is enabled for this category */}
+        {category.allowAccumulate && (
+          <AccumulateRow
+            currentAmount={instance.currentAmount}
+            onAdd={handleAccumulate}
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CategoriesManager (parent)
+// ─────────────────────────────────────────────────────────────────────────────
 export default function CategoriesManager({ user, categories, categoryInstances, onOptimisticUpdate, onUpdate }) {
-  const getInstanceForCategory = (categoryId) => {
-    return categoryInstances.find(inst => inst.categoryId === categoryId);
-  };
+  const getInstanceForCategory = (categoryId) =>
+    categoryInstances.find(inst => inst.categoryId === categoryId);
 
   const sortedIncomeCategories  = [...categories.income ].sort((a, b) => (a.order || 0) - (b.order || 0));
   const sortedExpenseCategories = [...categories.expense].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -183,17 +240,17 @@ export default function CategoriesManager({ user, categories, categoryInstances,
           <TabsContent value="income">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {sortedIncomeCategories.map(category => {
-                  const instance = getInstanceForCategory(category.id);
-                  if (!instance) return null;
-                  return (
-                    <CategoryEntry
-                      key={instance.id}
-                      category={category}
-                      instance={instance}
-                      onOptimisticUpdate={onOptimisticUpdate}
-                      onUpdate={onUpdate}
-                    />
-                  );
+                const instance = getInstanceForCategory(category.id);
+                if (!instance) return null;
+                return (
+                  <CategoryEntry
+                    key={instance.id}
+                    category={category}
+                    instance={instance}
+                    onOptimisticUpdate={onOptimisticUpdate}
+                    onUpdate={onUpdate}
+                  />
+                );
               })}
             </div>
           </TabsContent>
@@ -201,17 +258,17 @@ export default function CategoriesManager({ user, categories, categoryInstances,
           <TabsContent value="expense">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {sortedExpenseCategories.map(category => {
-                  const instance = getInstanceForCategory(category.id);
-                  if (!instance) return null;
-                  return (
-                    <CategoryEntry
-                      key={instance.id}
-                      category={category}
-                      instance={instance}
-                      onOptimisticUpdate={onOptimisticUpdate}
-                      onUpdate={onUpdate}
-                    />
-                  );
+                const instance = getInstanceForCategory(category.id);
+                if (!instance) return null;
+                return (
+                  <CategoryEntry
+                    key={instance.id}
+                    category={category}
+                    instance={instance}
+                    onOptimisticUpdate={onOptimisticUpdate}
+                    onUpdate={onUpdate}
+                  />
+                );
               })}
             </div>
           </TabsContent>
