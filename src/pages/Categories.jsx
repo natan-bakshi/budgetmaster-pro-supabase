@@ -11,17 +11,26 @@ import LoadingSpinner from '@/components/budget/LoadingSpinner';
 import CategoryList from "@/components/budget/CategoryList";
 import AddCategoryDialog from "@/components/budget/AddCategoryDialog";
 
+// Strip fields that don't exist yet in Supabase schema.
+// Once the migration is applied these fields are safe to send.
+const GUARDED_FIELDS = ['allowAccumulate'];
+function stripUnknownFields(data) {
+  const out = { ...data };
+  GUARDED_FIELDS.forEach(f => delete out[f]);
+  return out;
+}
+
 export default function Categories() {
   const cachedUser = appCache.getUser();
   const cachedCats = appCache.getCategoriesData();
 
-  const [user, setUser] = useState(() => cachedUser);
+  const [user, setUser]             = useState(() => cachedUser);
   const [categories, setCategories] = useState(() => cachedCats || { income: [], expense: [] });
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [dialogType, setDialogType] = useState('income');
+  const [showAddDialog, setShowAddDialog]   = useState(false);
+  const [dialogType, setDialogType]         = useState('income');
   const [editingCategory, setEditingCategory] = useState(null);
-  const [isLoading, setIsLoading] = useState(() => !cachedUser || !cachedCats);
-  const [activeTab, setActiveTab] = useState('income');
+  const [isLoading, setIsLoading]   = useState(() => !cachedUser || !cachedCats);
+  const [activeTab, setActiveTab]   = useState('income');
   const [scrollPosition, setScrollPosition] = useState(0);
 
   useEffect(() => {
@@ -56,7 +65,7 @@ export default function Categories() {
     try {
       const allCategories = await Category.filter({ householdId }, 'order');
       const newCats = {
-        income: allCategories.filter(c => c.type === 'income'),
+        income:  allCategories.filter(c => c.type === 'income'),
         expense: allCategories.filter(c => c.type === 'expense')
       };
       setCategories(newCats);
@@ -71,10 +80,11 @@ export default function Categories() {
   const addCategory = async (categoryData) => {
     try {
       if (editingCategory) {
-        await Category.update(editingCategory.id, categoryData);
+        // strip guarded fields so Supabase doesn't reject the PATCH
+        await Category.update(editingCategory.id, stripUnknownFields(categoryData));
       } else {
         const newCategory = {
-          ...categoryData,
+          ...stripUnknownFields(categoryData),
           householdId: user.householdId,
           order: categories[dialogType].length,
           currentAmount: 0,
@@ -107,30 +117,21 @@ export default function Categories() {
     const newIndex = direction === 'up' ? categoryIndex - 1 : categoryIndex + 1;
     if (newIndex < 0 || newIndex >= list.length) return;
     const currentCategory = list[categoryIndex];
-    const otherCategory = list[newIndex];
+    const otherCategory   = list[newIndex];
     await Promise.all([
       Category.update(currentCategory.id, { order: otherCategory.order }),
-      Category.update(otherCategory.id, { order: currentCategory.order })
+      Category.update(otherCategory.id,   { order: currentCategory.order })
     ]);
     await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
     appCache.setDashboardData(null);
     loadData(user.householdId, false);
   };
 
-  const handleAddCategory = (type) => {
-    setDialogType(type);
-    setEditingCategory(null);
-    setShowAddDialog(true);
-  };
-
-  const handleEditCategory = (type, category) => {
-    setDialogType(type);
-    setEditingCategory(category);
-    setShowAddDialog(true);
-  };
+  const handleAddCategory  = (type)             => { setDialogType(type); setEditingCategory(null);     setShowAddDialog(true); };
+  const handleEditCategory = (type, category)   => { setDialogType(type); setEditingCategory(category); setShowAddDialog(true); };
 
   if (isLoading) return <LoadingSpinner />;
-  if (!user) return <LoggedOutState />;
+  if (!user)     return <LoggedOutState />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 p-4" dir="rtl">
@@ -159,13 +160,17 @@ export default function Categories() {
           </TabsList>
 
           <TabsContent value="income" className="space-y-4">
-            {/* Button above title on mobile, side-by-side on desktop */}
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-              <Button onClick={() => handleAddCategory('income')} className="bg-green-600 hover:bg-green-700 sm:order-2 w-full sm:w-auto">
+            {/*
+              flex-col-reverse: on mobile the DOM order is [Button, Title]
+              but flex-col-reverse renders Title first visually.
+              sm:flex-row: side-by-side on desktop with justify-between.
+            */}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">קטגוריות הכנסות</h2>
+              <Button onClick={() => handleAddCategory('income')} className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
                 <Plus className="w-4 h-4 ml-2" />
                 הוסף הכנסה
               </Button>
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 sm:order-1">קטגוריות הכנסות</h2>
             </div>
             <CategoryList
               categories={categories.income}
@@ -178,12 +183,12 @@ export default function Categories() {
           </TabsContent>
 
           <TabsContent value="expense" className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-              <Button onClick={() => handleAddCategory('expense')} className="bg-red-600 hover:bg-red-700 sm:order-2 w-full sm:w-auto">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">קטגוריות הוצאות</h2>
+              <Button onClick={() => handleAddCategory('expense')} className="bg-red-600 hover:bg-red-700 w-full sm:w-auto">
                 <Plus className="w-4 h-4 ml-2" />
                 הוסף הוצאה
               </Button>
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100 sm:order-1">קטגוריות הוצאות</h2>
             </div>
             <CategoryList
               categories={categories.expense}
