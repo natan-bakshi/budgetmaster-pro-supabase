@@ -22,9 +22,11 @@ export default function Dashboard() {
   const [user, setUser] = useState(() => cachedUser);
   const [categories, setCategories] = useState(() => cachedDash?.categories || { income: [], expense: [] });
   const [categoryInstances, setCategoryInstances] = useState(() => cachedDash?.categoryInstances || []);
-  const [lastUpdateTime, setLastUpdateTime] = useState(() => cachedDash?.lastUpdateTime || cachedUser?.lastUpdateTime || null);
+  // Use global lastUpdateTime from cache so it survives page navigation
+  const [lastUpdateTime, setLastUpdateTime] = useState(
+    () => appCache.getLastUpdateTime() || cachedDash?.lastUpdateTime || cachedUser?.lastUpdateTime || null
+  );
   const [currentBudgetPeriod, setCurrentBudgetPeriod] = useState(() => cachedDash?.currentBudgetPeriod || { start: null, end: null, resetDay: 1 });
-  // Only show spinner if we have NO cached data at all
   const [isLoading, setIsLoading] = useState(() => !cachedUser || !cachedDash);
 
   const calculateBudgetPeriod = (resetDay = 1) => {
@@ -58,6 +60,7 @@ export default function Dashboard() {
       const lastCheck = currentUser.lastResetCheck ? new Date(currentUser.lastResetCheck) : null;
       const shouldCheck = !lastCheck || (now - lastCheck) > 24 * 60 * 60 * 1000;
       if (!shouldCheck) return resetDay;
+      const today = now;
       if (today >= periodStart) {
         const prevPeriodStart = new Date(periodStart);
         prevPeriodStart.setMonth(prevPeriodStart.getMonth() - 1);
@@ -134,12 +137,17 @@ export default function Dashboard() {
         setCategoryInstances(updatedInstances);
         const newBudgetPeriod = { start: periodStart, end: calculateBudgetPeriod(resetDay).end, resetDay };
         setCurrentBudgetPeriod(newBudgetPeriod);
-        // Save to cache so next visit is instant
+        // keep lastUpdateTime from user record if not overridden by manual update
+        const lut = currentUser.lastUpdateTime || null;
+        if (lut && !appCache.getLastUpdateTime()) {
+          appCache.setLastUpdateTime(lut);
+          setLastUpdateTime(lut);
+        }
         appCache.setDashboardData({
           categories: newCategories,
           categoryInstances: updatedInstances,
           currentBudgetPeriod: newBudgetPeriod,
-          lastUpdateTime: currentUser.lastUpdateTime || null
+          lastUpdateTime: appCache.getLastUpdateTime()
         });
       }
     } catch (error) {
@@ -151,7 +159,6 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchUserAndData = async () => {
       try {
-        // Determine BEFORE any async work whether we already have a cached user
         const hadCachedUser = !!appCache.getUser();
         const hadCachedDash = !!appCache.getDashboardData();
 
@@ -164,9 +171,10 @@ export default function Dashboard() {
         }
 
         setUser(currentUser);
-        setLastUpdateTime(currentUser.lastUpdateTime || null);
+        // Restore lastUpdateTime from global cache slot (survives page navigation)
+        const cachedLut = appCache.getLastUpdateTime() || currentUser.lastUpdateTime || null;
+        setLastUpdateTime(cachedLut);
 
-        // silent=true when we already showed cached data (no spinner needed)
         const silent = hadCachedUser && hadCachedDash;
         await loadData(currentUser, silent);
       } catch (e) {
@@ -197,12 +205,12 @@ export default function Dashboard() {
           ? { ...inst, currentAmount: newAmount, notes: newNotes }
           : inst
       );
-      // keep dashboard cache in sync
       const cached = appCache.getDashboardData();
       if (cached) appCache.setDashboardData({ ...cached, categoryInstances: updated, lastUpdateTime: now });
       return updated;
     });
     setLastUpdateTime(now);
+    appCache.setLastUpdateTime(now);  // persist across page navigation
     const cachedUser = appCache.getUser();
     if (cachedUser) appCache.setUser({ ...cachedUser, lastUpdateTime: now });
   }, []);
@@ -218,19 +226,19 @@ export default function Dashboard() {
   const balance = income - expenses;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 p-4" dir="rtl">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">
+          <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2">
             ברוך הבא, {user.full_name.split(' ')[0]}
           </h1>
-          <p className="text-slate-600">
+          <p className="text-slate-600 dark:text-slate-400">
             {user.householdId ? 'זהו סיכום התקציב החודשי שלך.' : 'זהו החשבון האישי שלך.'}
           </p>
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 bg-white shadow-sm">
+          <TabsList className="grid w-full grid-cols-2 bg-white dark:bg-slate-800 shadow-sm">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
               מבט כללי

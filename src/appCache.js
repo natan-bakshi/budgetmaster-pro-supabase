@@ -6,8 +6,9 @@ let _lastFetched = 0;
 let _dashboardData = null;   // { categories, categoryInstances, currentBudgetPeriod, lastUpdateTime }
 let _categoriesData = null;  // { income: [], expense: [] }
 let _historyData = null;     // MonthlyHistory[]
-let _exportData = null;      // { accounts, categories, transactions, defaultAccount }
+let _exportData = null;      // { categories, transactions }
 let _householdData = null;   // { members: [], household: {} }
+let _lastUpdateTime = null;  // ISO string – persisted across page navigations
 
 const CACHE_TTL = 60 * 1000; // 1 minute stale-while-revalidate
 
@@ -19,7 +20,15 @@ export const appCache = {
 
   // ── Dashboard ─────────────────────────────────────
   getDashboardData() { return _dashboardData; },
-  setDashboardData(data) { _dashboardData = data; },
+  setDashboardData(data) {
+    _dashboardData = data;
+    // keep global lastUpdateTime in sync
+    if (data?.lastUpdateTime) _lastUpdateTime = data.lastUpdateTime;
+  },
+
+  // ── Last update time (global, survives page nav) ───
+  getLastUpdateTime() { return _lastUpdateTime; },
+  setLastUpdateTime(t) { _lastUpdateTime = t; },
 
   // ── Categories page ───────────────────────────────
   getCategoriesData() { return _categoriesData; },
@@ -46,5 +55,6 @@ export const appCache = {
     _historyData = null;
     _exportData = null;
     _householdData = null;
+    _lastUpdateTime = null;
   }
 };
