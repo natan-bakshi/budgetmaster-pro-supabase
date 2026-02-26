@@ -1,5 +1,7 @@
 // Module-level in-memory cache – survives React re-renders and page navigation
-// but resets on full browser refresh (that's fine – it's a session cache)
+// _lastUpdateTime also persisted in localStorage so it survives full browser refresh
+
+const LS_KEY = 'bm_last_update_time';
 
 let _user = null;
 let _lastFetched = 0;
@@ -8,7 +10,8 @@ let _categoriesData = null;  // { income: [], expense: [] }
 let _historyData = null;     // MonthlyHistory[]
 let _exportData = null;      // { categories, transactions }
 let _householdData = null;   // { members: [], household: {} }
-let _lastUpdateTime = null;  // ISO string – persisted across page navigations
+// Initialise from localStorage so the value survives a browser refresh
+let _lastUpdateTime = (() => { try { return localStorage.getItem(LS_KEY) || null; } catch { return null; } })();
 
 const CACHE_TTL = 60 * 1000; // 1 minute stale-while-revalidate
 
@@ -23,12 +26,15 @@ export const appCache = {
   setDashboardData(data) {
     _dashboardData = data;
     // keep global lastUpdateTime in sync
-    if (data?.lastUpdateTime) _lastUpdateTime = data.lastUpdateTime;
+    if (data?.lastUpdateTime) this.setLastUpdateTime(data.lastUpdateTime);
   },
 
-  // ── Last update time (global, survives page nav) ───
+  // ── Last update time (global, survives page nav AND browser refresh) ───
   getLastUpdateTime() { return _lastUpdateTime; },
-  setLastUpdateTime(t) { _lastUpdateTime = t; },
+  setLastUpdateTime(t) {
+    _lastUpdateTime = t;
+    try { if (t) localStorage.setItem(LS_KEY, t); else localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
+  },
 
   // ── Categories page ───────────────────────────────
   getCategoriesData() { return _categoriesData; },
@@ -55,6 +61,6 @@ export const appCache = {
     _historyData = null;
     _exportData = null;
     _householdData = null;
-    _lastUpdateTime = null;
+    this.setLastUpdateTime(null); // also clears localStorage
   }
 };

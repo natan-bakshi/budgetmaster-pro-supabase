@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { CategoryInstance } from '@/entities/CategoryInstance';
 import { User } from '@/entities/User';
-import { Household } from '@/entities/Household';
 import { appCache } from '@/appCache';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,17 +33,15 @@ const CategoryEntry = ({ category, instance, onOptimisticUpdate, onUpdate }) => 
         onOptimisticUpdate({ instanceId: instance.id, newAmount, newNotes });
 
         try {
-            // 2. Persist to server in background
+            // 2. Persist category instance to server
             await CategoryInstance.update(instance.id, {
                 currentAmount: newAmount,
                 notes: newNotes
             });
-            // 3. Update lastUpdateTime on household so all members see it (fire and forget)
-            const cachedUser = appCache.getUser();
-            if (cachedUser?.householdId) {
-                const now = new Date().toISOString();
-                Household.update(cachedUser.householdId, { lastUpdateTime: now }).catch(console.error);
-            }
+            // 3. Persist lastUpdateTime to profiles table (reliable, proven path)
+            //    Fire-and-forget – UI already updated optimistically
+            const now = new Date().toISOString();
+            User.updateMyUserData({ lastUpdateTime: now }).catch(console.error);
         } catch (error) {
             console.error('Error saving category:', error);
             // On error: roll back by reloading from server
@@ -65,12 +62,9 @@ const CategoryEntry = ({ category, instance, onOptimisticUpdate, onUpdate }) => 
                 currentAmount: newAmount,
                 notes: newNotes
             });
-            // Update lastUpdateTime on household so all members see it (fire and forget)
-            const cachedUser = appCache.getUser();
-            if (cachedUser?.householdId) {
-                const now = new Date().toISOString();
-                Household.update(cachedUser.householdId, { lastUpdateTime: now }).catch(console.error);
-            }
+            // Persist lastUpdateTime to profiles table (fire and forget)
+            const now = new Date().toISOString();
+            User.updateMyUserData({ lastUpdateTime: now }).catch(console.error);
         } catch (error) {
             console.error('Error resetting category:', error);
             onUpdate();
@@ -78,7 +72,7 @@ const CategoryEntry = ({ category, instance, onOptimisticUpdate, onUpdate }) => 
     };
 
     const handleAmountFocus = (e) => { e.target.select(); };
-    const handleNotesFocus = (e) => { e.target.select(); };
+    const handleNotesFocus  = (e) => { e.target.select(); };
 
     const isIncome = category.type === 'income';
 
@@ -156,7 +150,7 @@ export default function CategoriesManager({ user, categories, categoryInstances,
     return categoryInstances.find(inst => inst.categoryId === categoryId);
   };
 
-  const sortedIncomeCategories = [...categories.income].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const sortedIncomeCategories  = [...categories.income ].sort((a, b) => (a.order || 0) - (b.order || 0));
   const sortedExpenseCategories = [...categories.expense].sort((a, b) => (a.order || 0) - (b.order || 0));
 
   return (
