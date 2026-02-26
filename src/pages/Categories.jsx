@@ -88,7 +88,6 @@ export default function Categories() {
         };
         await Category.create(newCategory);
       }
-      await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
       appCache.setDashboardData(null);
       setShowAddDialog(false);
       setEditingCategory(null);
@@ -97,13 +96,15 @@ export default function Categories() {
       console.error('Error saving category:', error);
       alert('שגיאה בשמירת הקטגוריה: ' + (error.message || error));
     }
+    // updateMyUserData runs independently — its failure must not affect the save flow
+    User.updateMyUserData({ lastUpdateTime: new Date().toISOString() }).catch(console.error);
   };
 
   const deleteCategory = async (type, categoryId) => {
     await Category.delete(categoryId);
-    await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
     appCache.setDashboardData(null);
     loadData(user.householdId, false);
+    User.updateMyUserData({ lastUpdateTime: new Date().toISOString() }).catch(console.error);
   };
 
   const moveCategory = async (type, categoryId, direction) => {
@@ -118,9 +119,9 @@ export default function Categories() {
       Category.update(currentCategory.id, { order: otherCategory.order }),
       Category.update(otherCategory.id,   { order: currentCategory.order })
     ]);
-    await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
     appCache.setDashboardData(null);
     loadData(user.householdId, false);
+    User.updateMyUserData({ lastUpdateTime: new Date().toISOString() }).catch(console.error);
   };
 
   const handleAddCategory  = (type)           => { setDialogType(type); setEditingCategory(null);     setShowAddDialog(true); };
