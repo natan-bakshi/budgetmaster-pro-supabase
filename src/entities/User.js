@@ -40,10 +40,10 @@ export const User = {
     if (updates.householdId !== undefined) dbUpdates.household_id = updates.householdId
     if (updates.role !== undefined) dbUpdates.role = updates.role
     if (updates.lastResetCheck !== undefined) dbUpdates.last_reset_check = updates.lastResetCheck
-    const { data, error } = await supabase
-      .from('profiles').update(dbUpdates).eq('id', id).select().single()
+    const { error } = await supabase
+      .from('profiles').update(dbUpdates).eq('id', id)
     if (error) throw error
-    return toProfile(data)
+    return this.me()
   },
 
   // Admin-only: update another user's profile via security-definer RPC
