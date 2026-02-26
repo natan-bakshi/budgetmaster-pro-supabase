@@ -126,9 +126,9 @@ export default function TimeCounter({ budgetPeriod, lastUpdateTime }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <Card className="bg-gradient-to-l from-purple-50 to-white border-purple-200 shadow-lg">
+      <Card className="bg-gradient-to-l from-purple-50 to-white dark:from-purple-900/30 dark:to-slate-800 border-purple-200 dark:border-purple-800 shadow-lg">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-purple-700">
+          <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
             <Calendar className="w-5 h-5" />
             זמן שנותר לסוף התקופה
           </CardTitle>
@@ -136,36 +136,36 @@ export default function TimeCounter({ budgetPeriod, lastUpdateTime }) {
         <CardContent>
           <div className="flex justify-between items-center mb-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-800">{timeData.daysLeft}</div>
-              <div className="text-sm text-purple-600">ימים</div>
+              <div className="text-2xl font-bold text-purple-800 dark:text-purple-300">{timeData.daysLeft}</div>
+              <div className="text-sm text-purple-600 dark:text-purple-400">ימים</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-800">{timeData.weeksLeft}</div>
-              <div className="text-sm text-purple-600">שבועות</div>
+              <div className="text-2xl font-bold text-purple-800 dark:text-purple-300">{timeData.weeksLeft}</div>
+              <div className="text-sm text-purple-600 dark:text-purple-400">שבועות</div>
             </div>
             {timeData.nextReset && (
               <div className="text-center">
-                <div className="text-sm font-bold text-purple-800">{formatNextReset(timeData.nextReset)}</div>
-                <div className="text-sm text-purple-600">איפוס הבא</div>
+                <div className="text-sm font-bold text-purple-800 dark:text-purple-300">{formatNextReset(timeData.nextReset)}</div>
+                <div className="text-sm text-purple-600 dark:text-purple-400">איפוס הבא</div>
               </div>
             )}
           </div>
 
-          <div className="w-full bg-purple-100 rounded-full h-2">
+          <div className="w-full bg-purple-100 dark:bg-purple-900/50 rounded-full h-2">
             <div
-              className="bg-purple-600 h-2 rounded-full transition-all duration-500"
+              className="bg-purple-600 dark:bg-purple-400 h-2 rounded-full transition-all duration-500"
               style={{ width: `${timeData.progress}%` }}
             />
           </div>
-          <div className="text-xs text-purple-600 mt-2 text-center">
+          <div className="text-xs text-purple-600 dark:text-purple-400 mt-2 text-center">
             {Math.round(timeData.progress)}% מהתקופה עבר
           </div>
         </CardContent>
       </Card>
 
-      <Card className="bg-gradient-to-l from-indigo-50 to-white border-indigo-200 shadow-lg">
+      <Card className="bg-gradient-to-l from-indigo-50 to-white dark:from-indigo-900/30 dark:to-slate-800 border-indigo-200 dark:border-indigo-800 shadow-lg">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-indigo-700">
+          <CardTitle className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400">
             <Clock className="w-5 h-5" />
             עדכון אחרון
           </CardTitle>
@@ -174,20 +174,20 @@ export default function TimeCounter({ budgetPeriod, lastUpdateTime }) {
           <div className="text-center">
             {lastUpdateFormatted ? (
               <>
-                <div className="text-lg font-semibold text-indigo-800 mb-1">
+                <div className="text-lg font-semibold text-indigo-800 dark:text-indigo-300 mb-1">
                   {lastUpdateFormatted.date}
                 </div>
-                <div className="text-sm text-indigo-600 mb-2">
+                <div className="text-sm text-indigo-600 dark:text-indigo-400 mb-2">
                   {lastUpdateFormatted.time}
                 </div>
                 {relativeTime && (
-                  <div className="inline-block bg-indigo-100 text-indigo-700 text-sm font-medium px-3 py-1 rounded-full">
+                  <div className="inline-block bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-sm font-medium px-3 py-1 rounded-full">
                     {relativeTime}
                   </div>
                 )}
               </>
             ) : (
-              <div className="text-lg font-semibold text-indigo-800">
+              <div className="text-lg font-semibold text-indigo-800 dark:text-indigo-300">
                 אין עדכונים
               </div>
             )}

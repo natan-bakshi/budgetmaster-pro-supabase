@@ -137,25 +137,25 @@ export default function Categories() {
   if (!user) return <LoggedOutState />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 p-4" dir="rtl">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">הגדרות קטגוריות</h1>
-          <p className="text-slate-600">ניהול קטגוריות הכנסות והוצאות</p>
+          <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2">הגדרות קטגוריות</h1>
+          <p className="text-slate-600 dark:text-slate-400">ניהול קטגוריות הכנסות והוצאות</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 p-1 bg-slate-100 rounded-xl">
+          <TabsList className="grid w-full grid-cols-2 p-1 bg-slate-100 dark:bg-slate-700 rounded-xl">
             <TabsTrigger
               value="income"
-              className="flex items-center gap-2 rounded-lg font-semibold data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-500"
+              className="flex items-center gap-2 rounded-lg font-semibold data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-500 dark:text-slate-400"
             >
               <TrendingUp className="w-4 h-4" />
               הכנסות ({categories.income.length})
             </TabsTrigger>
             <TabsTrigger
               value="expense"
-              className="flex items-center gap-2 rounded-lg font-semibold data-[state=active]:bg-red-500 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-500"
+              className="flex items-center gap-2 rounded-lg font-semibold data-[state=active]:bg-red-500 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-500 dark:text-slate-400"
             >
               <TrendingDown className="w-4 h-4" />
               הוצאות ({categories.expense.length})
@@ -164,7 +164,7 @@ export default function Categories() {
 
           <TabsContent value="income" className="space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-slate-800">קטגוריות הכנסות</h2>
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">קטגוריות הכנסות</h2>
               <Button onClick={() => handleAddCategory('income')} className="bg-green-600 hover:bg-green-700">
                 <Plus className="w-4 h-4 ml-2" />
                 הוסף הכנסה
@@ -182,7 +182,7 @@ export default function Categories() {
 
           <TabsContent value="expense" className="space-y-4">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-slate-800">קטגוריות הוצאות</h2>
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">קטגוריות הוצאות</h2>
               <Button onClick={() => handleAddCategory('expense')} className="bg-red-600 hover:bg-red-700">
                 <Plus className="w-4 h-4 ml-2" />
                 הוסף הוצאה

@@ -55,50 +55,50 @@ export default function AddCategoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md bg-white max-h-[90vh] overflow-y-auto" dir="rtl">
+      <DialogContent className="sm:max-w-md bg-white dark:bg-slate-800 dark:border-slate-700 max-h-[90vh] overflow-y-auto" dir="rtl">
         <DialogHeader>
-          <DialogTitle className="text-slate-800">
+          <DialogTitle className="text-slate-800 dark:text-slate-100">
             {editingCategory ? 'ערוך קטגוריה' : `הוסף ${type === 'income' ? 'הכנסה' : 'הוצאה'} חדשה`}
           </DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="name" className="text-slate-700">שם הקטגוריה</Label>
+            <Label htmlFor="name" className="text-slate-700 dark:text-slate-300">שם הקטגוריה</Label>
             <Input
               id="name"
               value={categoryData.name}
               onChange={(e) => setCategoryData({ ...categoryData, name: e.target.value })}
               placeholder={`לדוגמה: ${type === 'income' ? 'משכורת' : 'שכר דירה'}`}
-              className="bg-white text-slate-900"
+              className="bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 text-slate-900"
               required
             />
           </div>
           
           <div>
-            <Label htmlFor="defaultAmount" className="text-slate-700">סכום ברירת מחדל</Label>
+            <Label htmlFor="defaultAmount" className="text-slate-700 dark:text-slate-300">סכום ברירת מחדל</Label>
             <Input
               id="defaultAmount"
               type="number"
               value={categoryData.defaultAmount}
               onChange={(e) => setCategoryData({ ...categoryData, defaultAmount: e.target.value })}
               placeholder="0"
-              className="bg-white text-slate-900"
+              className="bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 text-slate-900"
             />
           </div>
 
           <div>
-            <Label className="text-slate-700">תאריך ביצוע בחודש</Label>
+            <Label className="text-slate-700 dark:text-slate-300">תאריך ביצוע בחודש</Label>
             <Select
               value={categoryData.executionDate}
               onValueChange={(value) => setCategoryData({ ...categoryData, executionDate: value })}
             >
-              <SelectTrigger className="bg-white text-slate-900">
+              <SelectTrigger className="bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 text-slate-900">
                 <SelectValue placeholder="בחר תאריך (אופציונלי)" />
               </SelectTrigger>
-              <SelectContent className="bg-white max-h-60 overflow-y-auto">
+              <SelectContent className="bg-white dark:bg-slate-700 dark:border-slate-600 max-h-60 overflow-y-auto">
                 {executionDays.map((day) => (
-                  <SelectItem key={day} value={day.toString()}>
+                  <SelectItem key={day} value={day.toString()} className="dark:text-slate-100 dark:focus:bg-slate-600">
                     {day}
                   </SelectItem>
                 ))}
@@ -112,11 +112,11 @@ export default function AddCategoryDialog({
               checked={categoryData.showNotes}
               onCheckedChange={(checked) => setCategoryData({ ...categoryData, showNotes: checked })}
             />
-            <Label htmlFor="showNotes" className="text-slate-700">הצג שדה הערות</Label>
+            <Label htmlFor="showNotes" className="text-slate-700 dark:text-slate-300">הצג שדה הערות</Label>
           </div>
           
           <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={handleClose}>
+            <Button type="button" variant="outline" onClick={handleClose} className="dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">
               ביטול
             </Button>
             <Button 

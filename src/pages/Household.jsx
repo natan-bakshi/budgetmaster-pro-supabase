@@ -48,22 +48,23 @@ const JoinHouseholdDialog = ({ onJoin }) => {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline">הצטרף למשק בית קיים</Button>
+        <Button variant="outline" className="dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700">הצטרף למשק בית קיים</Button>
       </DialogTrigger>
-      <DialogContent dir="rtl">
+      <DialogContent dir="rtl" className="dark:bg-slate-800 dark:border-slate-700">
         <DialogHeader>
-          <DialogTitle>הצטרפות למשק בית קיים</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="dark:text-slate-100">הצטרפות למשק בית קיים</DialogTitle>
+          <DialogDescription className="dark:text-slate-400">
             הזן את קוד ההצטרפות שקיבלת ממנהל משק הבית. הצטרפות תעביר לארכיון את הנתונים האישיים הנוכחיים שלך.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          <Label htmlFor="join-id">קוד ההצטרפות</Label>
+          <Label htmlFor="join-id" className="dark:text-slate-300">קוד ההצטרפות</Label>
           <Input
             id="join-id"
             value={householdId}
             onChange={(e) => setHouseholdId(e.target.value)}
             placeholder="הדבק כאן את קוד ההצטרפות"
+            className="dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400"
           />
         </div>
         <DialogFooter>
@@ -263,37 +264,37 @@ export default function HouseholdPage() {
 
   if (isPersonalSpace) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 pt-24" dir="rtl">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 p-4 pt-24" dir="rtl">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-slate-800 mb-2">ניהול המרחב שלך</h1>
-            <p className="text-slate-600">אתה כרגע במרחב אישי. מכאן תוכל להזמין חברים או להצטרף למשק בית.</p>
+            <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2">ניהול המרחב שלך</h1>
+            <p className="text-slate-600 dark:text-slate-400">אתה כרגע במרחב אישי. מכאן תוכל להזמין חברים או להצטרף למשק בית.</p>
           </div>
-          <Alert className="mb-8 bg-yellow-50 border-yellow-200">
-            <Users className="h-4 w-4 text-yellow-700" />
-            <AlertTitle className="text-yellow-800">מרחב אישי</AlertTitle>
-            <AlertDescription className="text-yellow-700">
+          <Alert className="mb-8 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+            <Users className="h-4 w-4 text-yellow-700 dark:text-yellow-400" />
+            <AlertTitle className="text-yellow-800 dark:text-yellow-300">מרחב אישי</AlertTitle>
+            <AlertDescription className="text-yellow-700 dark:text-yellow-400">
               כל הנתונים שאתה יוצר שמורים רק לך. כדי לשתף תקציב, הזמן חברים או הצטרף למשק בית.
             </AlertDescription>
           </Alert>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
+            <Card className="dark:bg-slate-800 dark:border-slate-700">
               <CardHeader>
-                <CardTitle>הזמן חברים</CardTitle>
-                <CardDescription>הפוך את המרחב האישי שלך למשק בית משותף על ידי הזמנת חברים.</CardDescription>
+                <CardTitle className="dark:text-slate-100">הזמן חברים</CardTitle>
+                <CardDescription className="dark:text-slate-400">הפוך את המרחב האישי שלך למשק בית משותף על ידי הזמנת חברים.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button onClick={copyHouseholdId} className="w-full">
                   <Copy className="w-4 h-4 ml-2"/>
                   העתק קוד הזמנה
                 </Button>
-                <p className="text-xs text-slate-500 mt-2">שתף את הקוד כדי שאחרים יוכלו להצטרף.</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">שתף את הקוד כדי שאחרים יוכלו להצטרף.</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="dark:bg-slate-800 dark:border-slate-700">
               <CardHeader>
-                <CardTitle>הצטרף למשק בית</CardTitle>
-                <CardDescription>אם הוזמנת למשק בית אחר, הזן את הקוד כדי להצטרף.</CardDescription>
+                <CardTitle className="dark:text-slate-100">הצטרף למשק בית</CardTitle>
+                <CardDescription className="dark:text-slate-400">אם הוזמנת למשק בית אחר, הזן את הקוד כדי להצטרף.</CardDescription>
               </CardHeader>
               <CardContent>
                 <JoinHouseholdDialog onJoin={handleJoinHousehold} />
@@ -306,26 +307,26 @@ export default function HouseholdPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 pt-24" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 p-4 pt-24" dir="rtl">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">ניהול משק בית</h1>
-          <p className="text-slate-600">נהל את החברים, ההרשאות והגדרות משק הבית שלך</p>
+          <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-2">ניהול משק בית</h1>
+          <p className="text-slate-600 dark:text-slate-400">נהל את החברים, ההרשאות והגדרות משק הבית שלך</p>
         </div>
 
-        <Card className="mb-8 bg-blue-50 border-blue-200">
+        <Card className="mb-8 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-800">
+            <CardTitle className="flex items-center gap-2 text-blue-800 dark:text-blue-300">
               <Users className="w-5 h-5"/>
               הזמן חברים חדשים
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="dark:text-slate-400">
               שתף את הקוד הבא עם בן/בת הזוג או חברים כדי שיצטרפו למשק הבית.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex items-center justify-between gap-4">
-            <Input readOnly value={currentUser.householdId} className="font-mono text-center bg-white" />
-            <Button onClick={copyHouseholdId} variant="outline" className="bg-white hover:bg-slate-50">
+            <Input readOnly value={currentUser.householdId} className="font-mono text-center bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100" />
+            <Button onClick={copyHouseholdId} variant="outline" className="bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 dark:border-slate-600 dark:text-slate-200">
               <Copy className="w-4 h-4 ml-2"/>
               העתק קוד
             </Button>
@@ -333,13 +334,13 @@ export default function HouseholdPage() {
         </Card>
 
         {isCurrentUserAdmin && (
-          <Card className="mb-8 bg-green-50 border-green-200">
+          <Card className="mb-8 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-green-800">
+              <CardTitle className="flex items-center gap-2 text-green-800 dark:text-green-300">
                 <UserPlus className="w-5 h-5"/>
                 הוסף חבר ידנית
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="dark:text-slate-400">
                 הזן את כתובת המייל של המשתמש שברצונך להוסיף למשק הבית.
               </CardDescription>
             </CardHeader>
@@ -350,7 +351,7 @@ export default function HouseholdPage() {
                   value={newMemberEmail}
                   onChange={(e) => setNewMemberEmail(e.target.value)}
                   placeholder="example@gmail.com"
-                  className="flex-1 bg-white"
+                  className="flex-1 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400"
                   required
                 />
                 <Button type="submit" disabled={isAddingMember} className="bg-green-600 hover:bg-green-700">
@@ -362,30 +363,30 @@ export default function HouseholdPage() {
         )}
 
         {isCurrentUserAdmin && householdData && (
-          <Card className="mb-8">
+          <Card className="mb-8 dark:bg-slate-800 dark:border-slate-700">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-slate-800">
+              <CardTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
                 <Settings className="w-5 h-5"/>
                 הגדרות משק בית
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="max-w-xs">
-                <Label htmlFor="reset-day">תאריך איפוס חודשי</Label>
+                <Label htmlFor="reset-day" className="dark:text-slate-300">תאריך איפוס חודשי</Label>
                 <Select
                   value={householdData.resetDay?.toString() || '1'}
                   onValueChange={handleResetDayChange}
                 >
-                  <SelectTrigger id="reset-day">
+                  <SelectTrigger id="reset-day" className="dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100">
                     <SelectValue placeholder="בחר יום..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="dark:bg-slate-700 dark:border-slate-600">
                     {resetDays.map(day => (
-                      <SelectItem key={day} value={day.toString()}>{day} לחודש</SelectItem>
+                      <SelectItem key={day} value={day.toString()} className="dark:text-slate-100 dark:focus:bg-slate-600">{day} לחודש</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <CardDescription className="mt-2">
+                <CardDescription className="mt-2 dark:text-slate-400">
                   ביום זה, הנתונים יאורכבו והתקציב יתאפס לברירות המחדל.
                 </CardDescription>
               </div>
@@ -393,36 +394,36 @@ export default function HouseholdPage() {
           </Card>
         )}
 
-        <Card>
+        <Card className="dark:bg-slate-800 dark:border-slate-700">
           <CardHeader>
-            <CardTitle>חברים במשק הבית</CardTitle>
+            <CardTitle className="dark:text-slate-100">חברים במשק הבית</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {members.map(member => (
-                <div key={member.id} className="flex flex-col sm:flex-row items-center justify-between p-4 bg-slate-50 rounded-lg">
+                <div key={member.id} className="flex flex-col sm:flex-row items-center justify-between p-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
                   <div className="flex items-center gap-4 mb-4 sm:mb-0">
                     <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
                       {member.full_name ? member.full_name.charAt(0) : '?'}
                     </div>
                     <div>
-                      <p className="font-semibold text-slate-800">{member.full_name}</p>
-                      <p className="text-sm text-slate-500">{member.email}</p>
+                      <p className="font-semibold text-slate-800 dark:text-slate-100">{member.full_name}</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">{member.email}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {isCurrentUserAdmin && member.id !== currentUser.id ? (
                       <>
                         <Select value={member.role} onValueChange={(newRole) => changeRole(member.id, newRole)}>
-                          <SelectTrigger className="w-[120px]">
+                          <SelectTrigger className="w-[120px] dark:bg-slate-600 dark:border-slate-500 dark:text-slate-100">
                             <SelectValue placeholder="בחר הרשאה" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">מנהל</SelectItem>
-                            <SelectItem value="member">חבר</SelectItem>
+                          <SelectContent className="dark:bg-slate-700 dark:border-slate-600">
+                            <SelectItem value="admin" className="dark:text-slate-100 dark:focus:bg-slate-600">מנהל</SelectItem>
+                            <SelectItem value="member" className="dark:text-slate-100 dark:focus:bg-slate-600">חבר</SelectItem>
                           </SelectContent>
                         </Select>
-                        <Button variant="outline" size="sm" onClick={() => removeMember(member.id)} className="text-red-600 hover:bg-red-50 hover:text-red-700">
+                        <Button variant="outline" size="sm" onClick={() => removeMember(member.id)} className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-slate-600 dark:hover:bg-red-900/30">
                           <Trash2 className="w-4 h-4"/>
                         </Button>
                       </>

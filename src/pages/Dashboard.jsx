@@ -56,6 +56,14 @@ export default function Dashboard() {
       const resetDay = household.resetDay || 1;
       const { start: periodStart, end: periodEnd } = calculateBudgetPeriod(resetDay);
       setCurrentBudgetPeriod({ start: periodStart, end: periodEnd, resetDay });
+
+      // Read lastUpdateTime from the household record (shared across all members)
+      const householdLut = household.lastUpdateTime || null;
+      if (householdLut) {
+        appCache.setLastUpdateTime(householdLut);
+        setLastUpdateTime(householdLut);
+      }
+
       const now = new Date();
       const lastCheck = currentUser.lastResetCheck ? new Date(currentUser.lastResetCheck) : null;
       const shouldCheck = !lastCheck || (now - lastCheck) > 24 * 60 * 60 * 1000;
@@ -137,12 +145,6 @@ export default function Dashboard() {
         setCategoryInstances(updatedInstances);
         const newBudgetPeriod = { start: periodStart, end: calculateBudgetPeriod(resetDay).end, resetDay };
         setCurrentBudgetPeriod(newBudgetPeriod);
-        // keep lastUpdateTime from user record if not overridden by manual update
-        const lut = currentUser.lastUpdateTime || null;
-        if (lut && !appCache.getLastUpdateTime()) {
-          appCache.setLastUpdateTime(lut);
-          setLastUpdateTime(lut);
-        }
         appCache.setDashboardData({
           categories: newCategories,
           categoryInstances: updatedInstances,

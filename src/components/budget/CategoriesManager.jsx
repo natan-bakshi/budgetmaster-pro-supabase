@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { CategoryInstance } from '@/entities/CategoryInstance';
 import { User } from '@/entities/User';
+import { Household } from '@/entities/Household';
+import { appCache } from '@/appCache';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -37,8 +39,12 @@ const CategoryEntry = ({ category, instance, onOptimisticUpdate, onUpdate }) => 
                 currentAmount: newAmount,
                 notes: newNotes
             });
-            // 3. Update lastUpdateTime on server (fire and forget – UI already updated)
-            User.updateMyUserData({ lastUpdateTime: new Date().toISOString() }).catch(console.error);
+            // 3. Update lastUpdateTime on household so all members see it (fire and forget)
+            const cachedUser = appCache.getUser();
+            if (cachedUser?.householdId) {
+                const now = new Date().toISOString();
+                Household.update(cachedUser.householdId, { lastUpdateTime: now }).catch(console.error);
+            }
         } catch (error) {
             console.error('Error saving category:', error);
             // On error: roll back by reloading from server
@@ -59,7 +65,12 @@ const CategoryEntry = ({ category, instance, onOptimisticUpdate, onUpdate }) => 
                 currentAmount: newAmount,
                 notes: newNotes
             });
-            User.updateMyUserData({ lastUpdateTime: new Date().toISOString() }).catch(console.error);
+            // Update lastUpdateTime on household so all members see it (fire and forget)
+            const cachedUser = appCache.getUser();
+            if (cachedUser?.householdId) {
+                const now = new Date().toISOString();
+                Household.update(cachedUser.householdId, { lastUpdateTime: now }).catch(console.error);
+            }
         } catch (error) {
             console.error('Error resetting category:', error);
             onUpdate();
@@ -72,17 +83,17 @@ const CategoryEntry = ({ category, instance, onOptimisticUpdate, onUpdate }) => 
     const isIncome = category.type === 'income';
 
     return (
-        <Card className="bg-slate-50">
+        <Card className="bg-slate-50 dark:bg-slate-700 dark:border-slate-600">
             <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
                     <div className="flex items-center gap-2">
                         {isIncome ?
-                            <TrendingUp className="w-5 h-5 text-green-600"/> :
-                            <TrendingDown className="w-5 h-5 text-red-600"/>
+                            <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400"/> :
+                            <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400"/>
                         }
                         <div>
-                            <div className="font-semibold">{category.name}</div>
-                            <div className="text-xs text-slate-500">
+                            <div className="font-semibold dark:text-slate-100">{category.name}</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400">
                                 ברירת מחדל: ₪{(category.defaultAmount || 0).toLocaleString()}
                             </div>
                         </div>
@@ -100,37 +111,37 @@ const CategoryEntry = ({ category, instance, onOptimisticUpdate, onUpdate }) => 
                             </Button>
                         )}
                         {isModifiedFromDefault && !hasUnsavedChanges && (
-                            <Button size="sm" variant="outline" onClick={handleReset} className="text-orange-600 hover:text-orange-700">
+                            <Button size="sm" variant="outline" onClick={handleReset} className="text-orange-600 hover:text-orange-700 dark:border-slate-500 dark:hover:bg-slate-600">
                                 <RotateCcw className="w-4 h-4" />
                             </Button>
                         )}
                     </div>
                 </div>
                 {isModifiedFromDefault && !hasUnsavedChanges && (
-                    <Badge variant="outline" className="w-fit text-xs">שונה מברירת מחדל</Badge>
+                    <Badge variant="outline" className="w-fit text-xs dark:border-slate-500 dark:text-slate-300">שונה מברירת מחדל</Badge>
                 )}
             </CardHeader>
             <CardContent className="space-y-3">
                 <div>
-                    <label className="text-sm font-medium text-slate-700">סכום לחודש זה</label>
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">סכום לחודש זה</label>
                     <Input
                         type="number"
                         value={amount}
                         placeholder={(category.defaultAmount || 0).toString()}
                         onChange={(e) => setAmount(e.target.value)}
-                        className={`text-lg font-semibold ${isIncome ? 'text-green-700' : 'text-red-700'}`}
+                        className={`text-lg font-semibold dark:bg-slate-600 dark:border-slate-500 dark:text-slate-100 ${isIncome ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}
                         onFocus={handleAmountFocus}
                     />
                 </div>
 
                 {category.showNotes && (
                     <div>
-                        <label className="text-sm font-medium text-slate-700">הערות</label>
+                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">הערות</label>
                         <Textarea
                             value={notes}
                             placeholder="הערות לחודש זה..."
                             onChange={(e) => setNotes(e.target.value)}
-                            className="h-20"
+                            className="h-20 dark:bg-slate-600 dark:border-slate-500 dark:text-slate-100 dark:placeholder-slate-400"
                             onFocus={handleNotesFocus}
                         />
                     </div>
@@ -149,26 +160,26 @@ export default function CategoriesManager({ user, categories, categoryInstances,
   const sortedExpenseCategories = [...categories.expense].sort((a, b) => (a.order || 0) - (b.order || 0));
 
   return (
-    <Card>
+    <Card className="dark:bg-slate-800 dark:border-slate-700">
       <CardHeader>
-        <CardTitle>ניהול תקציב חודשי</CardTitle>
-        <CardDescription>
+        <CardTitle className="dark:text-slate-100">ניהול תקציב חודשי</CardTitle>
+        <CardDescription className="dark:text-slate-400">
           עדכן את הסכומים לתקופה הנוכחית. הערכים יתאפסו אוטומטית בתחילת התקופה הבאה בהתאם להגדרות משק הבית.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="expense" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 p-1 bg-slate-100 rounded-xl">
+          <TabsList className="grid w-full grid-cols-2 p-1 bg-slate-100 dark:bg-slate-700 rounded-xl">
             <TabsTrigger
               value="income"
-              className="flex items-center gap-2 rounded-lg font-semibold data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-500"
+              className="flex items-center gap-2 rounded-lg font-semibold data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-500 dark:text-slate-400"
             >
               <TrendingUp className="w-4 h-4" />
               הכנסות ({sortedIncomeCategories.length})
             </TabsTrigger>
             <TabsTrigger
               value="expense"
-              className="flex items-center gap-2 rounded-lg font-semibold data-[state=active]:bg-red-500 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-500"
+              className="flex items-center gap-2 rounded-lg font-semibold data-[state=active]:bg-red-500 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-500 dark:text-slate-400"
             >
               <TrendingDown className="w-4 h-4" />
               הוצאות ({sortedExpenseCategories.length})
