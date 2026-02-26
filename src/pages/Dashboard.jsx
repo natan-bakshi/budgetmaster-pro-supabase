@@ -157,28 +157,23 @@ export default function Dashboard() {
         const hadCachedUser = !!appCache.getUser();
         const hadCachedDash = !!appCache.getDashboardData();
 
-        let currentUser;
-        if (hadCachedUser && !appCache.isStale()) {
-          currentUser = appCache.getUser();
-        } else {
-          currentUser = await User.me();
-          appCache.setUser(currentUser);
-        }
-
+        // Always fetch fresh user from DB so we get the latest last_update_time
+        // from the profiles table — this ensures other devices' updates are visible.
+        const currentUser = await User.me();
+        appCache.setUser(currentUser);
         setUser(currentUser);
 
-        // Determine lastUpdateTime:
-        // Priority: localStorage cache > profiles.last_update_time
-        // We always take the more recent of the two.
-        const cachedLut  = appCache.getLastUpdateTime();  // from localStorage
-        const profileLut = currentUser.lastUpdateTime || null; // from profiles table
+        // lastUpdateTime: take the most recent of DB value and localStorage value.
+        // DB value reflects changes by ANY household member from ANY device.
+        const cachedLut  = appCache.getLastUpdateTime();        // localStorage
+        const profileLut = currentUser.lastUpdateTime || null;   // profiles table (any device)
         const resolvedLut = (!cachedLut && !profileLut)
           ? null
           : (!cachedLut ? profileLut
             : (!profileLut ? cachedLut
-              : (new Date(cachedLut) >= new Date(profileLut) ? cachedLut : profileLut)));
+              : (new Date(profileLut) >= new Date(cachedLut) ? profileLut : cachedLut)));
 
-        if (resolvedLut) appCache.setLastUpdateTime(resolvedLut); // keep localStorage up-to-date
+        if (resolvedLut) appCache.setLastUpdateTime(resolvedLut);
         setLastUpdateTime(resolvedLut);
 
         const silent = hadCachedUser && hadCachedDash;
