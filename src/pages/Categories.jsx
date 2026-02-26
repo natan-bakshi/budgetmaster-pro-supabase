@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { User } from '@/entities/User';
 import { Category } from '@/entities/Category';
+import { appCache } from '@/appCache';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, TrendingUp, TrendingDown } from "lucide-react";
@@ -11,7 +12,8 @@ import CategoryList from "@/components/budget/CategoryList";
 import AddCategoryDialog from "@/components/budget/AddCategoryDialog";
 
 export default function Categories() {
-  const [user, setUser] = useState(null);
+  const cachedUser = appCache.getUser();
+  const [user, setUser] = useState(() => cachedUser);
   const [categories, setCategories] = useState({ income: [], expense: [] });
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogType, setDialogType] = useState('income');
@@ -23,10 +25,14 @@ export default function Categories() {
   useEffect(() => {
     const fetchUserAndData = async () => {
       try {
-        const currentUser = await User.me();
+        let currentUser = appCache.getUser();
+        if (!currentUser || appCache.isStale()) {
+          currentUser = await User.me();
+          appCache.setUser(currentUser);
+        }
         setUser(currentUser);
         if (currentUser && currentUser.householdId) {
-          loadData(currentUser.householdId);
+          await loadData(currentUser.householdId);
         } else {
           setIsLoading(false);
         }
@@ -69,6 +75,7 @@ export default function Categories() {
         await Category.create(newCategory);
       }
       await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
+      appCache.setDashboardData(null); // invalidate dashboard cache
       setShowAddDialog(false);
       setEditingCategory(null);
       loadData(user.householdId);
@@ -81,6 +88,7 @@ export default function Categories() {
   const deleteCategory = async (type, categoryId) => {
     await Category.delete(categoryId);
     await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
+    appCache.setDashboardData(null); // invalidate dashboard cache
     loadData(user.householdId);
   };
 
@@ -97,6 +105,7 @@ export default function Categories() {
       Category.update(otherCategory.id, { order: currentCategory.order })
     ]);
     await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
+    appCache.setDashboardData(null); // invalidate dashboard cache
     loadData(user.householdId);
   };
 

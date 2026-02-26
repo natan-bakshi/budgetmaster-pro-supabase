@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { User } from '@/entities/User';
 import { Category } from '@/entities/Category';
 import { CategoryInstance } from '@/entities/CategoryInstance';
@@ -16,17 +16,16 @@ import CategoriesManager from "@/components/budget/CategoriesManager";
 import TimeCounter from "@/components/budget/TimeCounter";
 
 export default function Dashboard() {
-  const [user, setUser] = useState(() => appCache.getUser());
-  const [categories, setCategories] = useState({ income: [], expense: [] });
-  const [categoryInstances, setCategoryInstances] = useState([]);
-  // isLoading=true only on FIRST load when we have no data yet
-  const [isLoading, setIsLoading] = useState(() => !appCache.getUser());
-  const [lastUpdateTime, setLastUpdateTime] = useState(null);
-  const [currentBudgetPeriod, setCurrentBudgetPeriod] = useState({
-    start: null,
-    end: null,
-    resetDay: 1
-  });
+  const cachedDash = appCache.getDashboardData();
+  const cachedUser = appCache.getUser();
+
+  const [user, setUser] = useState(() => cachedUser);
+  const [categories, setCategories] = useState(() => cachedDash?.categories || { income: [], expense: [] });
+  const [categoryInstances, setCategoryInstances] = useState(() => cachedDash?.categoryInstances || []);
+  const [lastUpdateTime, setLastUpdateTime] = useState(() => cachedDash?.lastUpdateTime || cachedUser?.lastUpdateTime || null);
+  const [currentBudgetPeriod, setCurrentBudgetPeriod] = useState(() => cachedDash?.currentBudgetPeriod || { start: null, end: null, resetDay: 1 });
+  // Only show spinner if we have NO cached data at all
+  const [isLoading, setIsLoading] = useState(() => !cachedUser || !cachedDash);
 
   const calculateBudgetPeriod = (resetDay = 1) => {
     const today = new Date();
@@ -53,14 +52,12 @@ export default function Dashboard() {
     try {
       const household = await Household.get(householdId);
       const resetDay = household.resetDay || 1;
-      const lastResetCheck = currentUser.lastResetCheck;
       const { start: periodStart, end: periodEnd } = calculateBudgetPeriod(resetDay);
       setCurrentBudgetPeriod({ start: periodStart, end: periodEnd, resetDay });
       const now = new Date();
-      const lastCheck = lastResetCheck ? new Date(lastResetCheck) : null;
+      const lastCheck = currentUser.lastResetCheck ? new Date(currentUser.lastResetCheck) : null;
       const shouldCheck = !lastCheck || (now - lastCheck) > 24 * 60 * 60 * 1000;
       if (!shouldCheck) return resetDay;
-      const today = new Date();
       if (today >= periodStart) {
         const prevPeriodStart = new Date(periodStart);
         prevPeriodStart.setMonth(prevPeriodStart.getMonth() - 1);
@@ -117,10 +114,9 @@ export default function Dashboard() {
   const loadData = useCallback(async (currentUser, silent = false) => {
     if (!silent) setIsLoading(true);
     try {
-      const userId = currentUser.id;
       const householdId = currentUser.householdId;
       if (householdId) {
-        const resetDay = await checkForMonthlyReset(userId, householdId, currentUser) || 1;
+        const resetDay = await checkForMonthlyReset(currentUser.id, householdId, currentUser) || 1;
         const { start: periodStart } = calculateBudgetPeriod(resetDay);
         const currentMonth = format(periodStart, 'yyyy-MM');
         const [fetchedCategories, fetchedInstances] = await Promise.all([
@@ -129,16 +125,21 @@ export default function Dashboard() {
         ]);
         const incomeCategories = fetchedCategories.filter(c => c.type === 'income');
         const expenseCategories = fetchedCategories.filter(c => c.type === 'expense');
-        setCategories({ income: incomeCategories, expense: expenseCategories });
+        const newCategories = { income: incomeCategories, expense: expenseCategories };
+        setCategories(newCategories);
         const hadMissingInstances = await createMissingInstances(fetchedCategories, fetchedInstances, currentMonth, householdId);
         const updatedInstances = hadMissingInstances
           ? await CategoryInstance.filter({ householdId, month: currentMonth })
           : fetchedInstances;
         setCategoryInstances(updatedInstances);
-        setCurrentBudgetPeriod({
-          start: periodStart,
-          end: calculateBudgetPeriod(resetDay).end,
-          resetDay
+        const newBudgetPeriod = { start: periodStart, end: calculateBudgetPeriod(resetDay).end, resetDay };
+        setCurrentBudgetPeriod(newBudgetPeriod);
+        // Save to cache so next visit is instant
+        appCache.setDashboardData({
+          categories: newCategories,
+          categoryInstances: updatedInstances,
+          currentBudgetPeriod: newBudgetPeriod,
+          lastUpdateTime: currentUser.lastUpdateTime || null
         });
       }
     } catch (error) {
@@ -150,15 +151,23 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchUserAndData = async () => {
       try {
-        let currentUser = appCache.getUser();
-        if (!currentUser || appCache.isStale()) {
+        // Determine BEFORE any async work whether we already have a cached user
+        const hadCachedUser = !!appCache.getUser();
+        const hadCachedDash = !!appCache.getDashboardData();
+
+        let currentUser;
+        if (hadCachedUser && !appCache.isStale()) {
+          currentUser = appCache.getUser();
+        } else {
           currentUser = await User.me();
           appCache.setUser(currentUser);
         }
+
         setUser(currentUser);
         setLastUpdateTime(currentUser.lastUpdateTime || null);
-        // If we already had cached user, load data silently (no spinner)
-        const silent = !!appCache.getUser();
+
+        // silent=true when we already showed cached data (no spinner needed)
+        const silent = hadCachedUser && hadCachedDash;
         await loadData(currentUser, silent);
       } catch (e) {
         setUser(null);
@@ -180,21 +189,22 @@ export default function Dashboard() {
     return totals;
   };
 
-  // Optimistic update: update local state immediately, then sync to server
   const handleOptimisticUpdate = useCallback(({ instanceId, newAmount, newNotes }) => {
     const now = new Date().toISOString();
-    setCategoryInstances(prev =>
-      prev.map(inst =>
+    setCategoryInstances(prev => {
+      const updated = prev.map(inst =>
         inst.id === instanceId
           ? { ...inst, currentAmount: newAmount, notes: newNotes }
           : inst
-      )
-    );
+      );
+      // keep dashboard cache in sync
+      const cached = appCache.getDashboardData();
+      if (cached) appCache.setDashboardData({ ...cached, categoryInstances: updated, lastUpdateTime: now });
+      return updated;
+    });
     setLastUpdateTime(now);
-    // Update cache too so re-navigating shows correct data
-    if (appCache.getUser()) {
-      appCache.setUser({ ...appCache.getUser(), lastUpdateTime: now });
-    }
+    const cachedUser = appCache.getUser();
+    if (cachedUser) appCache.setUser({ ...cachedUser, lastUpdateTime: now });
   }, []);
 
   const reloadData = useCallback(async () => {

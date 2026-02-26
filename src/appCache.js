@@ -3,6 +3,7 @@
 
 let _user = null;
 let _lastFetched = 0;
+let _dashboardData = null; // { categories, categoryInstances, currentBudgetPeriod, lastUpdateTime }
 const CACHE_TTL = 60 * 1000; // 1 minute stale-while-revalidate
 
 export const appCache = {
@@ -19,8 +20,17 @@ export const appCache = {
     return !_user || (Date.now() - _lastFetched) > CACHE_TTL;
   },
 
+  getDashboardData() {
+    return _dashboardData;
+  },
+
+  setDashboardData(data) {
+    _dashboardData = data;
+  },
+
   clear() {
     _user = null;
     _lastFetched = 0;
+    _dashboardData = null;
   }
 };

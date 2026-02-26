@@ -3,6 +3,7 @@ import { User } from '@/entities/User';
 import { Account } from '@/entities/Account';
 import { Category } from '@/entities/Category';
 import { Transaction } from '@/entities/Transaction';
+import { appCache } from '@/appCache';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, FileText, Database, Calendar } from "lucide-react";
@@ -11,7 +12,8 @@ import LoggedOutState from '@/components/budget/LoggedOutState';
 import LoadingSpinner from '@/components/budget/LoadingSpinner';
 
 export default function Export() {
-  const [user, setUser] = useState(null);
+  const cachedUser = appCache.getUser();
+  const [user, setUser] = useState(() => cachedUser);
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -19,10 +21,14 @@ export default function Export() {
   useEffect(() => {
     const fetchUserAndData = async () => {
       try {
-        const currentUser = await User.me();
+        let currentUser = appCache.getUser();
+        if (!currentUser || appCache.isStale()) {
+          currentUser = await User.me();
+          appCache.setUser(currentUser);
+        }
         setUser(currentUser);
         if (currentUser && currentUser.householdId) {
-          loadData(currentUser.householdId, currentUser.defaultAccountId);
+          await loadData(currentUser.householdId, currentUser.defaultAccountId);
         } else {
           setIsLoading(false);
         }
@@ -59,11 +65,9 @@ export default function Export() {
 
   const exportToCSV = async (type) => {
     setIsExporting(true);
-    
     try {
       let csvContent = '';
       let filename = '';
-
       switch (type) {
         case 'categories':
           csvContent = generateCategoriesCSV();
@@ -82,108 +86,64 @@ export default function Export() {
           filename = `budget_master_complete_${format(new Date(), 'yyyy-MM-dd')}.csv`;
           break;
       }
-
       downloadCSV(csvContent, filename);
     } catch (error) {
       console.error('Error exporting data:', error);
       alert('שגיאה בייצוא הנתונים');
     }
-
     setIsExporting(false);
   };
 
   const generateCategoriesCSV = () => {
     const headers = ['סוג,שם קטגוריה,סכום ברירת מחדל,תאריך ביצוע,חשבון,הערות'];
     const rows = [];
-
     if (data?.categories?.income) {
       data.categories.income.forEach(cat => {
-        rows.push([
-          'הכנסה',
-          cat.name || '',
-          cat.defaultAmount || 0,
-          cat.executionDate || '',
-          cat.accountId || '',
-          cat.showNotes ? 'כן' : 'לא'
-        ].join(','));
+        rows.push(['הכנסה', cat.name || '', cat.defaultAmount || 0, cat.executionDate || '', cat.accountId || '', cat.showNotes ? 'כן' : 'לא'].join(','));
       });
     }
-
     if (data?.categories?.expense) {
       data.categories.expense.forEach(cat => {
-        rows.push([
-          'הוצאה',
-          cat.name || '',
-          cat.defaultAmount || 0,
-          cat.executionDate || '',
-          cat.accountId || '',
-          cat.showNotes ? 'כן' : 'לא'
-        ].join(','));
+        rows.push(['הוצאה', cat.name || '', cat.defaultAmount || 0, cat.executionDate || '', cat.accountId || '', cat.showNotes ? 'כן' : 'לא'].join(','));
       });
     }
-
     return headers.concat(rows).join('\n');
   };
 
   const generateAccountsCSV = () => {
     const headers = ['שם חשבון,יתרה,צבע,חשבון ברירת מחדל,תאריך יצירה'];
     const rows = [];
-
     if (data?.accounts) {
       data.accounts.forEach(account => {
-        rows.push([
-          account.name || '',
-          account.balance || 0,
-          account.color || '',
-          account.id === data.defaultAccount ? 'כן' : 'לא',
-          account.created_date || ''
-        ].join(','));
+        rows.push([account.name || '', account.balance || 0, account.color || '', account.id === data.defaultAccount ? 'כן' : 'לא', account.created_date || ''].join(','));
       });
     }
-
     return headers.concat(rows).join('\n');
   };
 
   const generateTransactionsCSV = () => {
     const headers = ['תאריך,סכום,סוג,הערות,קטגוריה,חשבון'];
     const rows = [];
-
     if (data?.transactions) {
       data.transactions.forEach(transaction => {
-        rows.push([
-          transaction.date || '',
-          transaction.amount || 0,
-          transaction.type === 'income' ? 'הכנסה' : 'הוצאה',
-          transaction.notes || '',
-          transaction.categoryId || '',
-          transaction.accountId || ''
-        ].join(','));
+        rows.push([transaction.date || '', transaction.amount || 0, transaction.type === 'income' ? 'הכנסה' : 'הוצאה', transaction.notes || '', transaction.categoryId || '', transaction.accountId || ''].join(','));
       });
     }
-
     return headers.concat(rows).join('\n');
   };
 
   const generateCompleteCSV = () => {
-    const sections = [
-      '=== קטגוריות ===',
-      generateCategoriesCSV(),
-      '',
-      '=== חשבונות ===',
-      generateAccountsCSV(),
-      '',
-      '=== עסקאות ===',
-      generateTransactionsCSV()
-    ];
-
-    return sections.join('\n');
+    return [
+      '=== קטגוריות ===', generateCategoriesCSV(), '',
+      '=== חשבונות ===', generateAccountsCSV(), '',
+      '=== עסקאות ===', generateTransactionsCSV()
+    ].join('\n');
   };
 
   const downloadCSV = (content, filename) => {
     const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
-    
     link.setAttribute('href', url);
     link.setAttribute('download', filename);
     document.body.appendChild(link);
@@ -193,7 +153,6 @@ export default function Export() {
 
   const getDataStats = () => {
     if (!data) return { categories: 0, accounts: 0, transactions: 0 };
-    
     return {
       categories: (data.categories?.income?.length || 0) + (data.categories?.expense?.length || 0),
       accounts: data.accounts?.length || 0,
@@ -214,7 +173,6 @@ export default function Export() {
           <p className="text-slate-600">ייצא את הנתונים שלך לקובץ CSV</p>
         </div>
 
-        {/* Data Overview */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -240,7 +198,6 @@ export default function Export() {
           </CardContent>
         </Card>
 
-        {/* Export Options */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="hover:shadow-lg transition-shadow">
             <CardHeader>
@@ -250,14 +207,8 @@ export default function Export() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-slate-600 mb-4">
-                ייצא את כל קטגוריות ההכנסות וההוצאות עם הפרטים שלהן
-              </p>
-              <Button 
-                onClick={() => exportToCSV('categories')}
-                disabled={isExporting || stats.categories === 0}
-                className="w-full"
-              >
+              <p className="text-slate-600 mb-4">ייצא את כל קטגוריות ההכנסות וההוצאות עם הפרטים שלהן</p>
+              <Button onClick={() => exportToCSV('categories')} disabled={isExporting || stats.categories === 0} className="w-full">
                 <Download className="w-4 h-4 ml-2" />
                 ייצא קטגוריות
               </Button>
@@ -272,14 +223,8 @@ export default function Export() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-slate-600 mb-4">
-                ייצא את פרטי כל החשבונות ויתרותיהם
-              </p>
-              <Button 
-                onClick={() => exportToCSV('accounts')}
-                disabled={isExporting || stats.accounts === 0}
-                className="w-full"
-              >
+              <p className="text-slate-600 mb-4">ייצא את פרטי כל החשבונות ויתרותיהם</p>
+              <Button onClick={() => exportToCSV('accounts')} disabled={isExporting || stats.accounts === 0} className="w-full">
                 <Download className="w-4 h-4 ml-2" />
                 ייצא חשבונות
               </Button>
@@ -294,14 +239,8 @@ export default function Export() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-slate-600 mb-4">
-                ייצא את כל העסקאות שבוצעו במערכת
-              </p>
-              <Button 
-                onClick={() => exportToCSV('transactions')}
-                disabled={isExporting || stats.transactions === 0}
-                className="w-full"
-              >
+              <p className="text-slate-600 mb-4">ייצא את כל העסקאות שבוצעו במערכת</p>
+              <Button onClick={() => exportToCSV('transactions')} disabled={isExporting || stats.transactions === 0} className="w-full">
                 <Download className="w-4 h-4 ml-2" />
                 ייצא עסקאות
               </Button>
@@ -316,14 +255,8 @@ export default function Export() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-slate-600 mb-4">
-                ייצא את כל הנתונים במערכת בקובץ אחד
-              </p>
-              <Button 
-                onClick={() => exportToCSV('all')}
-                disabled={isExporting}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
+              <p className="text-slate-600 mb-4">ייצא את כל הנתונים במערכת בקובץ אחד</p>
+              <Button onClick={() => exportToCSV('all')} disabled={isExporting} className="w-full bg-blue-600 hover:bg-blue-700">
                 <Download className="w-4 h-4 ml-2" />
                 {isExporting ? 'מייצא...' : 'ייצא הכל'}
               </Button>
@@ -335,12 +268,8 @@ export default function Export() {
           <Card className="mt-8 text-center">
             <CardContent className="py-12">
               <FileText className="w-16 h-16 mx-auto text-slate-400 mb-4" />
-              <h3 className="text-xl font-semibold text-slate-700 mb-2">
-                אין נתונים לייצוא
-              </h3>
-              <p className="text-slate-500">
-                הוסף קטגוריות וחשבונות כדי שיהיה ניתן לייצא נתונים
-              </p>
+              <h3 className="text-xl font-semibold text-slate-700 mb-2">אין נתונים לייצוא</h3>
+              <p className="text-slate-500">הוסף קטגוריות וחשבונות כדי שיהיה ניתן לייצא נתונים</p>
             </CardContent>
           </Card>
         )}

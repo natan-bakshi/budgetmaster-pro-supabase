@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '@/entities/User';
 import { Household } from '@/entities/Household';
+import { appCache } from '@/appCache';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,7 +40,7 @@ const JoinHouseholdDialog = ({ onJoin }) => {
     try {
       await onJoin(householdId.trim());
     } catch (error) {
-       // Error is handled by the parent
+      // Error is handled by the parent
     }
     setIsLoading(false);
   };
@@ -66,8 +67,8 @@ const JoinHouseholdDialog = ({ onJoin }) => {
           />
         </div>
         <DialogFooter>
-          <Button 
-            onClick={handleJoin} 
+          <Button
+            onClick={handleJoin}
             disabled={isLoading}
             className="w-full bg-blue-600 hover:bg-blue-700"
           >
@@ -79,9 +80,9 @@ const JoinHouseholdDialog = ({ onJoin }) => {
   );
 };
 
-
 export default function HouseholdPage() {
-  const [currentUser, setCurrentUser] = useState(null);
+  const cachedUser = appCache.getUser();
+  const [currentUser, setCurrentUser] = useState(() => cachedUser);
   const [members, setMembers] = useState([]);
   const [householdData, setHouseholdData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -93,7 +94,11 @@ export default function HouseholdPage() {
     const fetchUserAndMembers = async () => {
       setIsLoading(true);
       try {
-        const user = await User.me();
+        let user = appCache.getUser();
+        if (!user || appCache.isStale()) {
+          user = await User.me();
+          appCache.setUser(user);
+        }
         setCurrentUser(user);
         if (user && user.householdId) {
           const [householdMembers, fetchedHouseholdData] = await Promise.all([
@@ -109,29 +114,28 @@ export default function HouseholdPage() {
       }
       setIsLoading(false);
     };
-
     fetchUserAndMembers();
   }, []);
-  
+
   const refetchData = async () => {
     setIsLoading(true);
     try {
-        const user = await User.me();
-        setCurrentUser(user);
-        if (user && user.householdId) {
-          const [householdMembers, fetchedHouseholdData] = await Promise.all([
-            User.filter({ householdId: user.householdId }),
-            Household.get(user.householdId)
-          ]);
-          setMembers(householdMembers);
-          setHouseholdData(fetchedHouseholdData);
-          setIsPersonalSpace(householdMembers.length === 1);
-        }
-    } catch(e) {
-        console.error("Failed to refetch data", e);
+      const user = appCache.getUser() || await User.me();
+      setCurrentUser(user);
+      if (user && user.householdId) {
+        const [householdMembers, fetchedHouseholdData] = await Promise.all([
+          User.filter({ householdId: user.householdId }),
+          Household.get(user.householdId)
+        ]);
+        setMembers(householdMembers);
+        setHouseholdData(fetchedHouseholdData);
+        setIsPersonalSpace(householdMembers.length === 1);
+      }
+    } catch (e) {
+      console.error("Failed to refetch data", e);
     }
     setIsLoading(false);
-  }
+  };
 
   const copyHouseholdId = () => {
     if (currentUser && currentUser.householdId) {
@@ -143,17 +147,14 @@ export default function HouseholdPage() {
   const addMemberByEmail = async (e) => {
     e.preventDefault();
     if (!newMemberEmail.trim()) return;
-    
     setIsAddingMember(true);
     try {
-      // Use RPC to find user by email (bypasses RLS safely)
       const existingUsers = await User.findByEmail(newMemberEmail.trim());
       if (existingUsers.length === 0) {
         alert('משתמש עם המייל הזה לא נמצא. המשתמש צריך להתחבר לפחות פעם אחת לאפליקציה.');
         setIsAddingMember(false);
         return;
       }
-      
       const userToAdd = existingUsers[0];
       if (userToAdd.householdId && userToAdd.householdId !== currentUser.householdId) {
         alert('המשתמש כבר שייך למשק בית אחר.');
@@ -165,13 +166,10 @@ export default function HouseholdPage() {
         setIsAddingMember(false);
         return;
       }
-      
-      // Use adminUpdate RPC to update another user's profile
-      await User.adminUpdate(userToAdd.id, { 
+      await User.adminUpdate(userToAdd.id, {
         householdId: currentUser.householdId,
         role: 'member'
       });
-      
       setNewMemberEmail('');
       refetchData();
       alert('המשתמש נוסף בהצלחה למשק הבית!');
@@ -186,15 +184,13 @@ export default function HouseholdPage() {
     if (confirm('האם אתה בטוח שברצונך להסיר את המשתמש ממשק הבית?')) {
       try {
         const removedUser = members.find(m => m.id === memberId);
-        // Create a new personal household for the removed user
-        const personalHousehold = await Household.create({ 
-          name: `${removedUser.full_name}'s Personal Space`, 
-          resetDay: 1 
+        const personalHousehold = await Household.create({
+          name: `${removedUser.full_name}'s Personal Space`,
+          resetDay: 1
         });
-        // Use adminUpdate RPC (bypasses RLS for cross-user update)
-        await User.adminUpdate(memberId, { 
-          householdId: personalHousehold.id, 
-          role: 'admin' 
+        await User.adminUpdate(memberId, {
+          householdId: personalHousehold.id,
+          role: 'admin'
         });
         refetchData();
       } catch (error) {
@@ -206,44 +202,41 @@ export default function HouseholdPage() {
 
   const changeRole = async (memberId, newRole) => {
     try {
-      // Use adminUpdate RPC (bypasses RLS for cross-user update)
       await User.adminUpdate(memberId, { role: newRole });
       refetchData();
     } catch (error) {
       console.error("Failed to change role:", error);
       alert('שגיאה בשינוי ההרשאה.');
     }
-  }
-  
+  };
+
   const handleResetDayChange = async (newDay) => {
     if (!householdData || !currentUser || currentUser.role !== 'admin') {
-        alert("אין לך הרשאה לבצע פעולה זו.");
-        return;
-    };
+      alert("אין לך הרשאה לבצע פעולה זו.");
+      return;
+    }
     try {
-        const day = parseInt(newDay, 10);
-        await Household.update(householdData.id, { resetDay: day });
-        setHouseholdData(prev => ({...prev, resetDay: day}));
-        alert('תאריך האיפוס עודכן!');
+      const day = parseInt(newDay, 10);
+      await Household.update(householdData.id, { resetDay: day });
+      setHouseholdData(prev => ({...prev, resetDay: day}));
+      alert('תאריך האיפוס עודכן!');
     } catch (error) {
-        console.error("Failed to update reset day:", error);
-        alert('שגיאה בעדכון תאריך האיפוס.');
+      console.error("Failed to update reset day:", error);
+      alert('שגיאה בעדכון תאריך האיפוס.');
     }
   };
 
   const handleJoinHousehold = async (joinId) => {
     try {
-      // Validate UUID format client-side (avoids RLS-blocked Household.get call)
       if (!UUID_REGEX.test(joinId)) {
         alert("קוד משק בית לא תקין. ודא שהעתקת את הקוד בשלמותו.");
         throw new Error("Invalid UUID format");
       }
-      // Self-update: user joins a household (RLS allows auth.uid() = id)
-      // If household doesn't exist, FK constraint will reject it
-      await User.updateMyUserData({ 
+      await User.updateMyUserData({
         householdId: joinId,
         role: 'member'
       });
+      appCache.clear();
       window.location.reload();
     } catch (error) {
       console.error("Error joining household:", error);
@@ -254,7 +247,6 @@ export default function HouseholdPage() {
     }
   };
 
-
   if (isLoading) return <LoadingSpinner />;
   if (!currentUser) return <LoggedOutState />;
 
@@ -262,51 +254,49 @@ export default function HouseholdPage() {
   const resetDays = Array.from({ length: 28 }, (_, i) => i + 1);
 
   if (isPersonalSpace) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 pt-24" dir="rtl">
-            <div className="max-w-4xl mx-auto">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-slate-800 mb-2">ניהול המרחב שלך</h1>
-                    <p className="text-slate-600">אתה כרגע במרחב אישי. מכאן תוכל להזמין חברים או להצטרף למשק בית קיים.</p>
-                </div>
-                <Alert className="mb-8 bg-yellow-50 border-yellow-200">
-                    <Users className="h-4 w-4 text-yellow-700" />
-                    <AlertTitle className="text-yellow-800">מרחב אישי</AlertTitle>
-                    <AlertDescription className="text-yellow-700">
-                        כל הנתונים שאתה יוצר שמורים רק לך. כדי לשתף תקציב, הזמן חברים או הצטרף למשק בית.
-                    </AlertDescription>
-                </Alert>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>הזמן חברים</CardTitle>
-                            <CardDescription>הפוך את המרחב האישי שלך למשק בית משותף על ידי הזמנת חברים.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                           <Button onClick={copyHouseholdId} className="w-full">
-                                <Copy className="w-4 h-4 ml-2"/>
-                                העתק קוד הזמנה
-                           </Button>
-                           <p className="text-xs text-slate-500 mt-2">שתף את הקוד כדי שאחרים יוכלו להצטרף.</p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>הצטרף למשק בית</CardTitle>
-                            <CardDescription>אם הוזמנת למשק בית אחר, הזן את הקוד כדי להצטרף.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <JoinHouseholdDialog onJoin={handleJoinHousehold} />
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 pt-24" dir="rtl">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-slate-800 mb-2">ניהול המרחב שלך</h1>
+            <p className="text-slate-600">אתה כרגע במרחב אישי. מכאן תוכל להזמין חברים או להצטרף למשק בית קיים.</p>
+          </div>
+          <Alert className="mb-8 bg-yellow-50 border-yellow-200">
+            <Users className="h-4 w-4 text-yellow-700" />
+            <AlertTitle className="text-yellow-800">מרחב אישי</AlertTitle>
+            <AlertDescription className="text-yellow-700">
+              כל הנתונים שאתה יוצר שמורים רק לך. כדי לשתף תקציב, הזמן חברים או הצטרף למשק בית.
+            </AlertDescription>
+          </Alert>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>הזמן חברים</CardTitle>
+                <CardDescription>הפוך את המרחב האישי שלך למשק בית משותף על ידי הזמנת חברים.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={copyHouseholdId} className="w-full">
+                  <Copy className="w-4 h-4 ml-2"/>
+                  העתק קוד הזמנה
+                </Button>
+                <p className="text-xs text-slate-500 mt-2">שתף את הקוד כדי שאחרים יוכלו להצטרף.</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>הצטרף למשק בית</CardTitle>
+                <CardDescription>אם הוזמנת למשק בית אחר, הזן את הקוד כדי להצטרף.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <JoinHouseholdDialog onJoin={handleJoinHousehold} />
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      )
+      </div>
+    );
   }
 
-  // Standard household management UI
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 pt-24" dir="rtl">
       <div className="max-w-4xl mx-auto">
@@ -326,11 +316,7 @@ export default function HouseholdPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex items-center justify-between gap-4">
-            <Input
-              readOnly
-              value={currentUser.householdId}
-              className="font-mono text-center bg-white"
-            />
+            <Input readOnly value={currentUser.householdId} className="font-mono text-center bg-white" />
             <Button onClick={copyHouseholdId} variant="outline" className="bg-white hover:bg-slate-50">
               <Copy className="w-4 h-4 ml-2"/>
               העתק קוד
@@ -359,11 +345,7 @@ export default function HouseholdPage() {
                   className="flex-1 bg-white"
                   required
                 />
-                <Button 
-                  type="submit" 
-                  disabled={isAddingMember}
-                  className="bg-green-600 hover:bg-green-700"
-                >
+                <Button type="submit" disabled={isAddingMember} className="bg-green-600 hover:bg-green-700">
                   {isAddingMember ? 'מוסיף...' : 'הוסף חבר'}
                 </Button>
               </form>
@@ -372,37 +354,35 @@ export default function HouseholdPage() {
         )}
 
         {isCurrentUserAdmin && householdData && (
-            <Card className="mb-8">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-slate-800">
-                        <Settings className="w-5 h-5"/>
-                        הגדרות משק בית
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="max-w-xs">
-                        <Label htmlFor="reset-day">תאריך איפוס חודשי</Label>
-                        <Select
-                            value={householdData.resetDay?.toString() || '1'}
-                            onValueChange={handleResetDayChange}
-                        >
-                            <SelectTrigger id="reset-day">
-                                <SelectValue placeholder="בחר יום..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {resetDays.map(day => (
-                                    <SelectItem key={day} value={day.toString()}>
-                                        {day} לחודש
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <CardDescription className="mt-2">
-                            ביום זה, הנתונים יאורכבו והתקציב יתאפס לברירות המחדל.
-                        </CardDescription>
-                    </div>
-                </CardContent>
-            </Card>
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-slate-800">
+                <Settings className="w-5 h-5"/>
+                הגדרות משק בית
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-w-xs">
+                <Label htmlFor="reset-day">תאריך איפוס חודשי</Label>
+                <Select
+                  value={householdData.resetDay?.toString() || '1'}
+                  onValueChange={handleResetDayChange}
+                >
+                  <SelectTrigger id="reset-day">
+                    <SelectValue placeholder="בחר יום..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {resetDays.map(day => (
+                      <SelectItem key={day} value={day.toString()}>{day} לחודש</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <CardDescription className="mt-2">
+                  ביום זה, הנתונים יאורכבו והתקציב יתאפס לברירות המחדל.
+                </CardDescription>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         <Card>
