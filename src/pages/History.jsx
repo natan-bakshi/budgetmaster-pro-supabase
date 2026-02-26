@@ -15,23 +15,32 @@ import LoadingSpinner from '@/components/budget/LoadingSpinner';
 
 export default function History() {
   const cachedUser = appCache.getUser();
+  const cachedHistory = appCache.getHistoryData();
+
   const [user, setUser] = useState(() => cachedUser);
-  const [monthlyHistory, setMonthlyHistory] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [monthlyHistory, setMonthlyHistory] = useState(() => cachedHistory || []);
+  // Show spinner only on first visit when there is no cached data
+  const [isLoading, setIsLoading] = useState(() => !cachedUser || !cachedHistory);
   const [editingRow, setEditingRow] = useState(null);
   const [editData, setEditData] = useState({});
 
   useEffect(() => {
     const fetchUserAndData = async () => {
       try {
-        let currentUser = appCache.getUser();
-        if (!currentUser || appCache.isStale()) {
+        const hadCachedUser = !!appCache.getUser();
+        const hadCachedHistory = !!appCache.getHistoryData();
+
+        let currentUser;
+        if (hadCachedUser && !appCache.isStale()) {
+          currentUser = appCache.getUser();
+        } else {
           currentUser = await User.me();
           appCache.setUser(currentUser);
         }
         setUser(currentUser);
+
         if (currentUser && currentUser.householdId) {
-          await loadHistory(currentUser.householdId);
+          await loadHistory(currentUser.householdId, hadCachedUser && hadCachedHistory);
         } else {
           setIsLoading(false);
         }
@@ -43,15 +52,16 @@ export default function History() {
     fetchUserAndData();
   }, []);
 
-  const loadHistory = async (householdId) => {
-    setIsLoading(true);
+  const loadHistory = async (householdId, silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const historyArray = await MonthlyHistory.filter({ householdId }, '-month');
       setMonthlyHistory(historyArray);
+      appCache.setHistoryData(historyArray);
     } catch (error) {
       console.error('Error loading history:', error);
     }
-    setIsLoading(false);
+    if (!silent) setIsLoading(false);
   };
 
   const startEdit = (record) => {
@@ -79,7 +89,7 @@ export default function History() {
       await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
       setEditingRow(null);
       setEditData({});
-      loadHistory(user.householdId);
+      loadHistory(user.householdId, false);
     } catch (error) {
       console.error('Error updating history:', error);
       alert('שגיאה בעדכון הנתונים');
@@ -91,7 +101,7 @@ export default function History() {
       try {
         await MonthlyHistory.delete(recordId);
         await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
-        loadHistory(user.householdId);
+        loadHistory(user.householdId, false);
       } catch (error) {
         console.error('Error deleting record:', error);
         alert('שגיאה במחיקת הרשומה');

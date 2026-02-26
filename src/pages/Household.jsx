@@ -58,7 +58,7 @@ const JoinHouseholdDialog = ({ onJoin }) => {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          <Label htmlFor="join-id">קוד הצטרפות</Label>
+          <Label htmlFor="join-id">קוד ההצטרפות</Label>
           <Input
             id="join-id"
             value={householdId}
@@ -82,59 +82,67 @@ const JoinHouseholdDialog = ({ onJoin }) => {
 
 export default function HouseholdPage() {
   const cachedUser = appCache.getUser();
+  const cachedHousehold = appCache.getHouseholdData();
+
   const [currentUser, setCurrentUser] = useState(() => cachedUser);
-  const [members, setMembers] = useState([]);
-  const [householdData, setHouseholdData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [members, setMembers] = useState(() => cachedHousehold?.members || []);
+  const [householdData, setHouseholdData] = useState(() => cachedHousehold?.household || null);
+  // Show spinner only on first visit when there is no cached data
+  const [isLoading, setIsLoading] = useState(() => !cachedUser || !cachedHousehold);
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [isAddingMember, setIsAddingMember] = useState(false);
-  const [isPersonalSpace, setIsPersonalSpace] = useState(false);
+  const [isPersonalSpace, setIsPersonalSpace] = useState(() =>
+    cachedHousehold ? cachedHousehold.members.length === 1 : false
+  );
 
   useEffect(() => {
     const fetchUserAndMembers = async () => {
-      setIsLoading(true);
       try {
-        let user = appCache.getUser();
-        if (!user || appCache.isStale()) {
+        const hadCachedUser = !!appCache.getUser();
+        const hadCachedHousehold = !!appCache.getHouseholdData();
+
+        let user;
+        if (hadCachedUser && !appCache.isStale()) {
+          user = appCache.getUser();
+        } else {
           user = await User.me();
           appCache.setUser(user);
         }
         setCurrentUser(user);
+
         if (user && user.householdId) {
-          const [householdMembers, fetchedHouseholdData] = await Promise.all([
-            User.filter({ householdId: user.householdId }),
-            Household.get(user.householdId)
-          ]);
-          setMembers(householdMembers);
-          setHouseholdData(fetchedHouseholdData);
-          setIsPersonalSpace(householdMembers.length === 1);
+          await fetchHouseholdData(user, hadCachedUser && hadCachedHousehold);
+        } else {
+          setIsLoading(false);
         }
       } catch (e) {
         setCurrentUser(null);
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
     fetchUserAndMembers();
   }, []);
 
-  const refetchData = async () => {
-    setIsLoading(true);
+  const fetchHouseholdData = async (user, silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
-      const user = appCache.getUser() || await User.me();
-      setCurrentUser(user);
-      if (user && user.householdId) {
-        const [householdMembers, fetchedHouseholdData] = await Promise.all([
-          User.filter({ householdId: user.householdId }),
-          Household.get(user.householdId)
-        ]);
-        setMembers(householdMembers);
-        setHouseholdData(fetchedHouseholdData);
-        setIsPersonalSpace(householdMembers.length === 1);
-      }
+      const [householdMembers, fetchedHouseholdData] = await Promise.all([
+        User.filter({ householdId: user.householdId }),
+        Household.get(user.householdId)
+      ]);
+      setMembers(householdMembers);
+      setHouseholdData(fetchedHouseholdData);
+      setIsPersonalSpace(householdMembers.length === 1);
+      appCache.setHouseholdData({ members: householdMembers, household: fetchedHouseholdData });
     } catch (e) {
-      console.error("Failed to refetch data", e);
+      console.error('Failed to fetch household data', e);
     }
-    setIsLoading(false);
+    if (!silent) setIsLoading(false);
+  };
+
+  const refetchData = async () => {
+    const user = appCache.getUser() || currentUser;
+    if (user) await fetchHouseholdData(user, false);
   };
 
   const copyHouseholdId = () => {
@@ -174,7 +182,7 @@ export default function HouseholdPage() {
       refetchData();
       alert('המשתמש נוסף בהצלחה למשק הבית!');
     } catch (error) {
-      console.error("Failed to add member:", error);
+      console.error('Failed to add member:', error);
       alert('שגיאה בהוספת המשתמש.');
     }
     setIsAddingMember(false);
@@ -194,7 +202,7 @@ export default function HouseholdPage() {
         });
         refetchData();
       } catch (error) {
-        console.error("Failed to remove member:", error);
+        console.error('Failed to remove member:', error);
         alert('שגיאה בהסרת המשתמש.');
       }
     }
@@ -205,7 +213,7 @@ export default function HouseholdPage() {
       await User.adminUpdate(memberId, { role: newRole });
       refetchData();
     } catch (error) {
-      console.error("Failed to change role:", error);
+      console.error('Failed to change role:', error);
       alert('שגיאה בשינוי ההרשאה.');
     }
   };
@@ -221,7 +229,7 @@ export default function HouseholdPage() {
       setHouseholdData(prev => ({...prev, resetDay: day}));
       alert('תאריך האיפוס עודכן!');
     } catch (error) {
-      console.error("Failed to update reset day:", error);
+      console.error('Failed to update reset day:', error);
       alert('שגיאה בעדכון תאריך האיפוס.');
     }
   };
@@ -239,7 +247,7 @@ export default function HouseholdPage() {
       appCache.clear();
       window.location.reload();
     } catch (error) {
-      console.error("Error joining household:", error);
+      console.error('Error joining household:', error);
       if (error.message !== "Invalid UUID format") {
         alert("שגיאה בהצטרפות למשק הבית. ודא שהקוד נכון ונסה שוב.");
       }
@@ -259,7 +267,7 @@ export default function HouseholdPage() {
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-slate-800 mb-2">ניהול המרחב שלך</h1>
-            <p className="text-slate-600">אתה כרגע במרחב אישי. מכאן תוכל להזמין חברים או להצטרף למשק בית קיים.</p>
+            <p className="text-slate-600">אתה כרגע במרחב אישי. מכאן תוכל להזמין חברים או להצטרף למשק בית.</p>
           </div>
           <Alert className="mb-8 bg-yellow-50 border-yellow-200">
             <Users className="h-4 w-4 text-yellow-700" />

@@ -3,34 +3,48 @@
 
 let _user = null;
 let _lastFetched = 0;
-let _dashboardData = null; // { categories, categoryInstances, currentBudgetPeriod, lastUpdateTime }
+let _dashboardData = null;   // { categories, categoryInstances, currentBudgetPeriod, lastUpdateTime }
+let _categoriesData = null;  // { income: [], expense: [] }
+let _historyData = null;     // MonthlyHistory[]
+let _exportData = null;      // { accounts, categories, transactions, defaultAccount }
+let _householdData = null;   // { members: [], household: {} }
+
 const CACHE_TTL = 60 * 1000; // 1 minute stale-while-revalidate
 
 export const appCache = {
-  getUser() {
-    return _user;
-  },
+  // ── User ──────────────────────────────────────────
+  getUser() { return _user; },
+  setUser(user) { _user = user; _lastFetched = Date.now(); },
+  isStale() { return !_user || (Date.now() - _lastFetched) > CACHE_TTL; },
 
-  setUser(user) {
-    _user = user;
-    _lastFetched = Date.now();
-  },
+  // ── Dashboard ─────────────────────────────────────
+  getDashboardData() { return _dashboardData; },
+  setDashboardData(data) { _dashboardData = data; },
 
-  isStale() {
-    return !_user || (Date.now() - _lastFetched) > CACHE_TTL;
-  },
+  // ── Categories page ───────────────────────────────
+  getCategoriesData() { return _categoriesData; },
+  setCategoriesData(data) { _categoriesData = data; },
 
-  getDashboardData() {
-    return _dashboardData;
-  },
+  // ── History page ──────────────────────────────────
+  getHistoryData() { return _historyData; },
+  setHistoryData(data) { _historyData = data; },
 
-  setDashboardData(data) {
-    _dashboardData = data;
-  },
+  // ── Export page ───────────────────────────────────
+  getExportData() { return _exportData; },
+  setExportData(data) { _exportData = data; },
 
+  // ── Household page ────────────────────────────────
+  getHouseholdData() { return _householdData; },
+  setHouseholdData(data) { _householdData = data; },
+
+  // ── Full clear (logout / join household) ──────────
   clear() {
     _user = null;
     _lastFetched = 0;
     _dashboardData = null;
+    _categoriesData = null;
+    _historyData = null;
+    _exportData = null;
+    _householdData = null;
   }
 };

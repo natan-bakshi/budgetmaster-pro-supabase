@@ -13,26 +13,36 @@ import AddCategoryDialog from "@/components/budget/AddCategoryDialog";
 
 export default function Categories() {
   const cachedUser = appCache.getUser();
+  const cachedCats = appCache.getCategoriesData();
+
   const [user, setUser] = useState(() => cachedUser);
-  const [categories, setCategories] = useState({ income: [], expense: [] });
+  const [categories, setCategories] = useState(() => cachedCats || { income: [], expense: [] });
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogType, setDialogType] = useState('income');
   const [editingCategory, setEditingCategory] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Show spinner only on first visit when there is no cached data
+  const [isLoading, setIsLoading] = useState(() => !cachedUser || !cachedCats);
   const [activeTab, setActiveTab] = useState('income');
   const [scrollPosition, setScrollPosition] = useState(0);
 
   useEffect(() => {
     const fetchUserAndData = async () => {
       try {
-        let currentUser = appCache.getUser();
-        if (!currentUser || appCache.isStale()) {
+        const hadCachedUser = !!appCache.getUser();
+        const hadCachedCats = !!appCache.getCategoriesData();
+
+        let currentUser;
+        if (hadCachedUser && !appCache.isStale()) {
+          currentUser = appCache.getUser();
+        } else {
           currentUser = await User.me();
           appCache.setUser(currentUser);
         }
         setUser(currentUser);
+
         if (currentUser && currentUser.householdId) {
-          await loadData(currentUser.householdId);
+          // silent = already showing cached data → no spinner
+          await loadData(currentUser.householdId, hadCachedUser && hadCachedCats);
         } else {
           setIsLoading(false);
         }
@@ -44,19 +54,21 @@ export default function Categories() {
     fetchUserAndData();
   }, []);
 
-  const loadData = async (householdId) => {
+  const loadData = async (householdId, silent = false) => {
     setScrollPosition(window.pageYOffset);
-    setIsLoading(true);
+    if (!silent) setIsLoading(true);
     try {
       const allCategories = await Category.filter({ householdId }, 'order');
-      setCategories({
+      const newCats = {
         income: allCategories.filter(c => c.type === 'income'),
         expense: allCategories.filter(c => c.type === 'expense')
-      });
+      };
+      setCategories(newCats);
+      appCache.setCategoriesData(newCats);
     } catch (error) {
       console.error('Error loading data:', error);
     }
-    setIsLoading(false);
+    if (!silent) setIsLoading(false);
     setTimeout(() => { window.scrollTo(0, scrollPosition); }, 100);
   };
 
@@ -75,10 +87,10 @@ export default function Categories() {
         await Category.create(newCategory);
       }
       await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
-      appCache.setDashboardData(null); // invalidate dashboard cache
+      appCache.setDashboardData(null);
       setShowAddDialog(false);
       setEditingCategory(null);
-      loadData(user.householdId);
+      loadData(user.householdId, false);
     } catch (error) {
       console.error('Error saving category:', error);
       alert('שגיאה בשמירת הקטגוריה: ' + (error.message || error));
@@ -88,8 +100,8 @@ export default function Categories() {
   const deleteCategory = async (type, categoryId) => {
     await Category.delete(categoryId);
     await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
-    appCache.setDashboardData(null); // invalidate dashboard cache
-    loadData(user.householdId);
+    appCache.setDashboardData(null);
+    loadData(user.householdId, false);
   };
 
   const moveCategory = async (type, categoryId, direction) => {
@@ -105,8 +117,8 @@ export default function Categories() {
       Category.update(otherCategory.id, { order: currentCategory.order })
     ]);
     await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
-    appCache.setDashboardData(null); // invalidate dashboard cache
-    loadData(user.householdId);
+    appCache.setDashboardData(null);
+    loadData(user.householdId, false);
   };
 
   const handleAddCategory = (type) => {

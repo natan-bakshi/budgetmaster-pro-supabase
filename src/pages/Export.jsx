@@ -13,22 +13,31 @@ import LoadingSpinner from '@/components/budget/LoadingSpinner';
 
 export default function Export() {
   const cachedUser = appCache.getUser();
+  const cachedExport = appCache.getExportData();
+
   const [user, setUser] = useState(() => cachedUser);
-  const [data, setData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [data, setData] = useState(() => cachedExport || null);
+  // Show spinner only on first visit when there is no cached data
+  const [isLoading, setIsLoading] = useState(() => !cachedUser || !cachedExport);
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     const fetchUserAndData = async () => {
       try {
-        let currentUser = appCache.getUser();
-        if (!currentUser || appCache.isStale()) {
+        const hadCachedUser = !!appCache.getUser();
+        const hadCachedExport = !!appCache.getExportData();
+
+        let currentUser;
+        if (hadCachedUser && !appCache.isStale()) {
+          currentUser = appCache.getUser();
+        } else {
           currentUser = await User.me();
           appCache.setUser(currentUser);
         }
         setUser(currentUser);
+
         if (currentUser && currentUser.householdId) {
-          await loadData(currentUser.householdId, currentUser.defaultAccountId);
+          await loadData(currentUser.householdId, currentUser.defaultAccountId, hadCachedUser && hadCachedExport);
         } else {
           setIsLoading(false);
         }
@@ -40,15 +49,15 @@ export default function Export() {
     fetchUserAndData();
   }, []);
 
-  const loadData = async (householdId, defaultAccountId) => {
-    setIsLoading(true);
+  const loadData = async (householdId, defaultAccountId, silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const [accounts, categories, transactions] = await Promise.all([
         Account.filter({ householdId }),
         Category.filter({ householdId }),
         Transaction.filter({ householdId })
       ]);
-      setData({
+      const newData = {
         accounts,
         categories: {
           income: categories.filter(c => c.type === 'income'),
@@ -56,11 +65,13 @@ export default function Export() {
         },
         transactions,
         defaultAccount: defaultAccountId,
-      });
+      };
+      setData(newData);
+      appCache.setExportData(newData);
     } catch (error) {
       console.error('Error loading data:', error);
     }
-    setIsLoading(false);
+    if (!silent) setIsLoading(false);
   };
 
   const exportToCSV = async (type) => {
