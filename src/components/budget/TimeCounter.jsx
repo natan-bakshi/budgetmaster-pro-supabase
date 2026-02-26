@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { User } from '@/entities/User';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Clock } from "lucide-react";
 
@@ -38,39 +37,28 @@ const getRelativeTime = (dateString) => {
   }
 };
 
-export default function TimeCounter({ budgetPeriod }) {
+// Now receives lastUpdateTime as a prop from Dashboard (no internal fetch needed)
+export default function TimeCounter({ budgetPeriod, lastUpdateTime }) {
   const [timeData, setTimeData] = useState({
     daysLeft: 0,
     weeksLeft: 0,
     progress: 0,
     nextReset: null
   });
-  const [lastUpdate, setLastUpdate] = useState(null);
-  const [relativeTime, setRelativeTime] = useState(null);
+  const [relativeTime, setRelativeTime] = useState(() => getRelativeTime(lastUpdateTime));
 
+  // Update relative time badge whenever lastUpdateTime prop changes
   useEffect(() => {
-    const fetchLastUpdate = async () => {
-      try {
-        const user = await User.me();
-        setLastUpdate(user.lastUpdateTime);
-        setRelativeTime(getRelativeTime(user.lastUpdateTime));
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-      }
-    };
-    fetchLastUpdate();
-    // Refresh relative time every minute
+    setRelativeTime(getRelativeTime(lastUpdateTime));
+  }, [lastUpdateTime]);
+
+  // Keep relative-time text ticking every minute
+  useEffect(() => {
     const interval = setInterval(() => {
-      setRelativeTime(prev => {
-        setLastUpdate(lu => {
-          setRelativeTime(getRelativeTime(lu));
-          return lu;
-        });
-        return prev;
-      });
+      setRelativeTime(getRelativeTime(lastUpdateTime));
     }, 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [lastUpdateTime]);
 
   useEffect(() => {
     const calculateTimeLeft = () => {
@@ -129,7 +117,7 @@ export default function TimeCounter({ budgetPeriod }) {
     }
   };
 
-  const lastUpdateFormatted = formatLastUpdate(lastUpdate);
+  const lastUpdateFormatted = formatLastUpdate(lastUpdateTime);
 
   const formatNextReset = (date) => {
     if (!date) return '';

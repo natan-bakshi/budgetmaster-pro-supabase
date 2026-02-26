@@ -9,50 +9,60 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, TrendingDown, Save, RotateCcw } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
-// Stateful component to handle editing and prevent cursor jumps
-const CategoryEntry = ({ category, instance, onUpdate }) => {
+const CategoryEntry = ({ category, instance, onOptimisticUpdate, onUpdate }) => {
     const [amount, setAmount] = useState(instance.currentAmount.toString());
     const [notes, setNotes] = useState(instance.notes || '');
     const [isSaving, setIsSaving] = useState(false);
 
+    // Sync local state when instance prop changes (from optimistic updates by other components)
     useEffect(() => {
         setAmount(instance.currentAmount.toString());
         setNotes(instance.notes || '');
-    }, [instance]);
+    }, [instance.currentAmount, instance.notes]);
 
     const hasUnsavedChanges = amount !== instance.currentAmount.toString() || notes !== (instance.notes || '');
     const isModifiedFromDefault = instance.currentAmount !== (category.defaultAmount || 0) || (instance.notes || '') !== '';
 
     const handleSave = async () => {
+        const newAmount = parseFloat(amount) || 0;
+        const newNotes = notes;
         setIsSaving(true);
+
+        // 1. Optimistic update – update UI immediately
+        onOptimisticUpdate({ instanceId: instance.id, newAmount, newNotes });
+
         try {
+            // 2. Persist to server in background
             await CategoryInstance.update(instance.id, {
-                currentAmount: parseFloat(amount) || 0,
-                notes: notes
+                currentAmount: newAmount,
+                notes: newNotes
             });
-
-            if (hasUnsavedChanges) {
-                await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
-            }
-
-            onUpdate();
+            // 3. Update lastUpdateTime on server (fire and forget – UI already updated)
+            User.updateMyUserData({ lastUpdateTime: new Date().toISOString() }).catch(console.error);
         } catch (error) {
             console.error('Error saving category:', error);
+            // On error: roll back by reloading from server
+            onUpdate();
         }
         setIsSaving(false);
     };
 
     const handleReset = async () => {
+        const newAmount = category.defaultAmount || 0;
+        const newNotes = '';
+
+        // Optimistic update
+        onOptimisticUpdate({ instanceId: instance.id, newAmount, newNotes });
+
         try {
             await CategoryInstance.update(instance.id, {
-                currentAmount: category.defaultAmount || 0,
-                notes: ''
+                currentAmount: newAmount,
+                notes: newNotes
             });
-
-            await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
-            onUpdate();
+            User.updateMyUserData({ lastUpdateTime: new Date().toISOString() }).catch(console.error);
         } catch (error) {
             console.error('Error resetting category:', error);
+            onUpdate();
         }
     };
 
@@ -89,7 +99,7 @@ const CategoryEntry = ({ category, instance, onUpdate }) => {
                                 {isSaving ? 'שומר...' : ''}
                             </Button>
                         )}
-                        {isModifiedFromDefault && (
+                        {isModifiedFromDefault && !hasUnsavedChanges && (
                             <Button size="sm" variant="outline" onClick={handleReset} className="text-orange-600 hover:text-orange-700">
                                 <RotateCcw className="w-4 h-4" />
                             </Button>
@@ -130,7 +140,7 @@ const CategoryEntry = ({ category, instance, onUpdate }) => {
     );
 };
 
-export default function CategoriesManager({ user, categories, categoryInstances, onUpdate }) {
+export default function CategoriesManager({ user, categories, categoryInstances, onOptimisticUpdate, onUpdate }) {
   const getInstanceForCategory = (categoryId) => {
     return categoryInstances.find(inst => inst.categoryId === categoryId);
   };
@@ -170,7 +180,15 @@ export default function CategoriesManager({ user, categories, categoryInstances,
               {sortedIncomeCategories.map(category => {
                   const instance = getInstanceForCategory(category.id);
                   if (!instance) return null;
-                  return <CategoryEntry key={instance.id} category={category} instance={instance} onUpdate={onUpdate} />;
+                  return (
+                    <CategoryEntry
+                      key={instance.id}
+                      category={category}
+                      instance={instance}
+                      onOptimisticUpdate={onOptimisticUpdate}
+                      onUpdate={onUpdate}
+                    />
+                  );
               })}
             </div>
           </TabsContent>
@@ -180,7 +198,15 @@ export default function CategoriesManager({ user, categories, categoryInstances,
               {sortedExpenseCategories.map(category => {
                   const instance = getInstanceForCategory(category.id);
                   if (!instance) return null;
-                  return <CategoryEntry key={instance.id} category={category} instance={instance} onUpdate={onUpdate} />;
+                  return (
+                    <CategoryEntry
+                      key={instance.id}
+                      category={category}
+                      instance={instance}
+                      onOptimisticUpdate={onOptimisticUpdate}
+                      onUpdate={onUpdate}
+                    />
+                  );
               })}
             </div>
           </TabsContent>

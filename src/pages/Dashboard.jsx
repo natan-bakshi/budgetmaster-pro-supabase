@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { User } from '@/entities/User';
 import { Category } from '@/entities/Category';
 import { CategoryInstance } from '@/entities/CategoryInstance';
 import { Household } from '@/entities/Household';
 import { MonthlyHistory } from '@/entities/MonthlyHistory';
+import { appCache } from '@/appCache';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, Settings } from "lucide-react";
 import { format } from 'date-fns';
@@ -15,10 +16,12 @@ import CategoriesManager from "@/components/budget/CategoriesManager";
 import TimeCounter from "@/components/budget/TimeCounter";
 
 export default function Dashboard() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => appCache.getUser());
   const [categories, setCategories] = useState({ income: [], expense: [] });
   const [categoryInstances, setCategoryInstances] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // isLoading=true only on FIRST load when we have no data yet
+  const [isLoading, setIsLoading] = useState(() => !appCache.getUser());
+  const [lastUpdateTime, setLastUpdateTime] = useState(null);
   const [currentBudgetPeriod, setCurrentBudgetPeriod] = useState({
     start: null,
     end: null,
@@ -52,7 +55,6 @@ export default function Dashboard() {
       const resetDay = household.resetDay || 1;
       const lastResetCheck = currentUser.lastResetCheck;
       const { start: periodStart, end: periodEnd } = calculateBudgetPeriod(resetDay);
-      const currentPeriodStr = getBudgetPeriodString(periodStart);
       setCurrentBudgetPeriod({ start: periodStart, end: periodEnd, resetDay });
       const now = new Date();
       const lastCheck = lastResetCheck ? new Date(lastResetCheck) : null;
@@ -112,8 +114,8 @@ export default function Dashboard() {
     return missingCategories.length > 0;
   };
 
-  const loadData = useCallback(async (currentUser) => {
-    setIsLoading(true);
+  const loadData = useCallback(async (currentUser, silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const userId = currentUser.id;
       const householdId = currentUser.householdId;
@@ -142,15 +144,22 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Error loading data:', error);
     }
-    setIsLoading(false);
+    if (!silent) setIsLoading(false);
   }, []);
 
   useEffect(() => {
     const fetchUserAndData = async () => {
       try {
-        const currentUser = await User.me();
+        let currentUser = appCache.getUser();
+        if (!currentUser || appCache.isStale()) {
+          currentUser = await User.me();
+          appCache.setUser(currentUser);
+        }
         setUser(currentUser);
-        await loadData(currentUser);
+        setLastUpdateTime(currentUser.lastUpdateTime || null);
+        // If we already had cached user, load data silently (no spinner)
+        const silent = !!appCache.getUser();
+        await loadData(currentUser, silent);
       } catch (e) {
         setUser(null);
         setIsLoading(false);
@@ -171,7 +180,26 @@ export default function Dashboard() {
     return totals;
   };
 
-  const reloadData = async () => { if (user) await loadData(user); };
+  // Optimistic update: update local state immediately, then sync to server
+  const handleOptimisticUpdate = useCallback(({ instanceId, newAmount, newNotes }) => {
+    const now = new Date().toISOString();
+    setCategoryInstances(prev =>
+      prev.map(inst =>
+        inst.id === instanceId
+          ? { ...inst, currentAmount: newAmount, notes: newNotes }
+          : inst
+      )
+    );
+    setLastUpdateTime(now);
+    // Update cache too so re-navigating shows correct data
+    if (appCache.getUser()) {
+      appCache.setUser({ ...appCache.getUser(), lastUpdateTime: now });
+    }
+  }, []);
+
+  const reloadData = useCallback(async () => {
+    if (user) await loadData(user, true);
+  }, [user, loadData]);
 
   if (isLoading) return <LoadingSpinner />;
   if (!user) return <LoggedOutState />;
@@ -209,7 +237,10 @@ export default function Dashboard() {
               monthlyExpenses={expenses}
               monthlyBalance={balance}
             />
-            <TimeCounter budgetPeriod={currentBudgetPeriod} />
+            <TimeCounter
+              budgetPeriod={currentBudgetPeriod}
+              lastUpdateTime={lastUpdateTime}
+            />
           </TabsContent>
 
           <TabsContent value="manage" className="space-y-6">
@@ -217,6 +248,7 @@ export default function Dashboard() {
               user={user}
               categories={categories}
               categoryInstances={categoryInstances}
+              onOptimisticUpdate={handleOptimisticUpdate}
               onUpdate={reloadData}
             />
           </TabsContent>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { User } from "@/entities/User";
+import { appCache } from "@/appCache";
 import {
   Menu,
   X,
@@ -14,7 +15,6 @@ import {
   Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import LoadingSpinner from './components/budget/LoadingSpinner';
 
 const navigationItems = [
   { title: "דף הבית", url: createPageUrl("Dashboard"), icon: Home, description: "מבט חודשי כללי" },
@@ -35,25 +35,36 @@ const bottomNavItems = [
 export default function Layout({ children, currentPageName }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
-  const [user, setUser] = useState(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  // Seed from cache immediately – no flicker, no blocking spinner
+  const [user, setUser] = useState(() => appCache.getUser());
 
   useEffect(() => {
+    let cancelled = false;
     const fetchUser = async () => {
-      setIsAuthLoading(true);
+      // If cache is fresh, skip fetch entirely
+      if (!appCache.isStale()) {
+        setUser(appCache.getUser());
+        return;
+      }
       try {
         const currentUser = await User.me();
+        if (cancelled) return;
         if (!currentUser.householdId) {
+          appCache.setUser(null);
           setUser(null);
         } else {
+          appCache.setUser(currentUser);
           setUser(currentUser);
         }
       } catch (e) {
-        setUser(null);
+        if (!cancelled) {
+          appCache.setUser(null);
+          setUser(null);
+        }
       }
-      setIsAuthLoading(false);
     };
     fetchUser();
+    return () => { cancelled = true; };
   }, [location.pathname]);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -61,13 +72,13 @@ export default function Layout({ children, currentPageName }) {
 
   const handleLogout = async () => {
     await User.logout();
+    appCache.clear();
     setUser(null);
     closeMenu();
     window.location.href = createPageUrl('Dashboard');
   };
 
-  if (isAuthLoading) return <LoadingSpinner />;
-
+  // NO loading spinner here – render layout immediately with cached user
   return (
     <div className="min-h-screen bg-slate-50" dir="rtl">
       <style>
@@ -158,7 +169,7 @@ export default function Layout({ children, currentPageName }) {
         </div>
       )}
 
-      {/* Main content: pad bottom on mobile for bottom nav */}
+      {/* Main content */}
       <main className="pt-16 pb-20 md:pb-0">
         {children}
       </main>
@@ -179,7 +190,7 @@ export default function Layout({ children, currentPageName }) {
                       : 'text-slate-500 hover:text-blue-500 hover:bg-slate-50'
                   }`}
                 >
-                  <item.icon className={`w-5 h-5 ${ isActive ? 'text-blue-600' : 'text-slate-400' }`} />
+                  <item.icon className={`w-5 h-5 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
                   <span className={`font-medium ${isActive ? 'text-blue-600' : ''}`}>{item.title}</span>
                 </Link>
               );
