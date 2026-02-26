@@ -11,12 +11,11 @@ import LoadingSpinner from '@/components/budget/LoadingSpinner';
 import CategoryList from "@/components/budget/CategoryList";
 import AddCategoryDialog from "@/components/budget/AddCategoryDialog";
 
-// Strip fields that don't exist yet in Supabase schema.
-// Once the migration is applied these fields are safe to send.
-const GUARDED_FIELDS = ['allowAccumulate'];
-function stripUnknownFields(data) {
+// Fields that must not be sent to the `categories` table
+const CATEGORY_FORBIDDEN = ['allowAccumulate', 'currentAmount', 'createdAt'];
+function sanitizeForCategories(data) {
   const out = { ...data };
-  GUARDED_FIELDS.forEach(f => delete out[f]);
+  CATEGORY_FORBIDDEN.forEach(f => delete out[f]);
   return out;
 }
 
@@ -26,8 +25,8 @@ export default function Categories() {
 
   const [user, setUser]             = useState(() => cachedUser);
   const [categories, setCategories] = useState(() => cachedCats || { income: [], expense: [] });
-  const [showAddDialog, setShowAddDialog]   = useState(false);
-  const [dialogType, setDialogType]         = useState('income');
+  const [showAddDialog, setShowAddDialog]     = useState(false);
+  const [dialogType, setDialogType]           = useState('income');
   const [editingCategory, setEditingCategory] = useState(null);
   const [isLoading, setIsLoading]   = useState(() => !cachedUser || !cachedCats);
   const [activeTab, setActiveTab]   = useState('income');
@@ -80,15 +79,12 @@ export default function Categories() {
   const addCategory = async (categoryData) => {
     try {
       if (editingCategory) {
-        // strip guarded fields so Supabase doesn't reject the PATCH
-        await Category.update(editingCategory.id, stripUnknownFields(categoryData));
+        await Category.update(editingCategory.id, sanitizeForCategories(categoryData));
       } else {
         const newCategory = {
-          ...stripUnknownFields(categoryData),
+          ...sanitizeForCategories(categoryData),
           householdId: user.householdId,
           order: categories[dialogType].length,
-          currentAmount: 0,
-          createdAt: new Date().toISOString()
         };
         await Category.create(newCategory);
       }
@@ -127,8 +123,8 @@ export default function Categories() {
     loadData(user.householdId, false);
   };
 
-  const handleAddCategory  = (type)             => { setDialogType(type); setEditingCategory(null);     setShowAddDialog(true); };
-  const handleEditCategory = (type, category)   => { setDialogType(type); setEditingCategory(category); setShowAddDialog(true); };
+  const handleAddCategory  = (type)           => { setDialogType(type); setEditingCategory(null);     setShowAddDialog(true); };
+  const handleEditCategory = (type, category) => { setDialogType(type); setEditingCategory(category); setShowAddDialog(true); };
 
   if (isLoading) return <LoadingSpinner />;
   if (!user)     return <LoggedOutState />;
@@ -160,17 +156,13 @@ export default function Categories() {
           </TabsList>
 
           <TabsContent value="income" className="space-y-4">
-            {/*
-              flex-col-reverse: on mobile the DOM order is [Button, Title]
-              but flex-col-reverse renders Title first visually.
-              sm:flex-row: side-by-side on desktop with justify-between.
-            */}
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">קטגוריות הכנסות</h2>
+            {/* Button first in DOM → renders above title on mobile (flex-col). On desktop flex-row reverses visually via justify-between */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <Button onClick={() => handleAddCategory('income')} className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
                 <Plus className="w-4 h-4 ml-2" />
                 הוסף הכנסה
               </Button>
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">קטגוריות הכנסות</h2>
             </div>
             <CategoryList
               categories={categories.income}
@@ -183,12 +175,12 @@ export default function Categories() {
           </TabsContent>
 
           <TabsContent value="expense" className="space-y-4">
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">קטגוריות הוצאות</h2>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <Button onClick={() => handleAddCategory('expense')} className="bg-red-600 hover:bg-red-700 w-full sm:w-auto">
                 <Plus className="w-4 h-4 ml-2" />
                 הוסף הוצאה
               </Button>
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">קטגוריות הוצאות</h2>
             </div>
             <CategoryList
               categories={categories.expense}
