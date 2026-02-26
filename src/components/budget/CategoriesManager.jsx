@@ -43,6 +43,7 @@ function AccumulateRow({ currentAmount, onAdd }) {
         <Input
           ref={inputRef}
           type="number"
+          inputMode="decimal"
           min="0"
           value={addValue}
           onChange={(e) => setAddValue(e.target.value)}
@@ -83,12 +84,12 @@ const CategoryEntry = ({ category, instance, onOptimisticUpdate, onUpdate }) => 
   const persistSave = async (newAmount, newNotes) => {
     try {
       await CategoryInstance.update(instance.id, { currentAmount: newAmount, notes: newNotes });
-      const now = new Date().toISOString();
-      User.updateMyUserData({ lastUpdateTime: now }).catch(console.error);
     } catch (error) {
       console.error('Error saving category:', error);
       onUpdate();
     }
+    // updateMyUserData runs independently — its failure must not affect the save flow
+    User.updateMyUserData({ lastUpdateTime: new Date().toISOString() }).catch(console.error);
   };
 
   const handleSave = async () => {
@@ -166,6 +167,7 @@ const CategoryEntry = ({ category, instance, onOptimisticUpdate, onUpdate }) => 
           <label className="text-sm font-medium text-slate-700 dark:text-slate-300">סכום לחודש זה</label>
           <Input
             type="number"
+            inputMode="decimal"
             value={amount}
             placeholder={(category.defaultAmount || 0).toString()}
             onChange={(e) => setAmount(e.target.value)}
@@ -215,7 +217,7 @@ export default function CategoriesManager({ user, categories, categoryInstances,
       <CardHeader>
         <CardTitle className="dark:text-slate-100">ניהול תקציב חודשי</CardTitle>
         <CardDescription className="dark:text-slate-400">
-          עדכן את הסכומים לתקופה הנוכחית. הערכים יתאפסו אוטומטית בתחילת התקופה הבאה בהתאם להגדרות משק הבית.
+          עדכן את הסכומות לתקופה הנוכחית. הערכים יתאפסו אוטומטית בתחילת התקופה הבאה בהתאם להגדרות משק הבית.
         </CardDescription>
       </CardHeader>
       <CardContent>
