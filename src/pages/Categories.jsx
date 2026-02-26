@@ -12,7 +12,9 @@ import CategoryList from "@/components/budget/CategoryList";
 import AddCategoryDialog from "@/components/budget/AddCategoryDialog";
 
 // Fields that must not be sent to the `categories` table
-const CATEGORY_FORBIDDEN = ['allowAccumulate', 'currentAmount', 'createdAt'];
+// Note: allowAccumulate IS a real column (allow_accumulate) — do NOT forbid it
+// Note: created_at is auto-set by DB — do NOT send it manually
+const CATEGORY_FORBIDDEN = ['currentAmount', 'createdAt'];
 function sanitizeForCategories(data) {
   const out = { ...data };
   CATEGORY_FORBIDDEN.forEach(f => delete out[f]);
@@ -157,7 +159,6 @@ export default function Categories() {
           </TabsList>
 
           <TabsContent value="income" className="space-y-4">
-            {/* Button first in DOM → renders above title on mobile (flex-col). On desktop flex-row reverses visually via justify-between */}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <Button onClick={() => handleAddCategory('income')} className="bg-green-600 hover:bg-green-700 w-full sm:w-auto">
                 <Plus className="w-4 h-4 ml-2" />
