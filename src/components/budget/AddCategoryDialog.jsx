@@ -17,7 +17,6 @@ export default function AddCategoryDialog({
   const [categoryData, setCategoryData] = useState({
     name: '',
     defaultAmount: '',
-    accountId: null,
     executionDate: '',
     showNotes: false
   });
@@ -27,12 +26,11 @@ export default function AddCategoryDialog({
       setCategoryData({
         name: editingCategory.name || '',
         defaultAmount: editingCategory.defaultAmount || '',
-        accountId: editingCategory.accountId || null,
         executionDate: editingCategory.executionDate || '',
         showNotes: editingCategory.showNotes || false
       });
     } else {
-      setCategoryData({ name: '', defaultAmount: '', accountId: null, executionDate: '', showNotes: false });
+      setCategoryData({ name: '', defaultAmount: '', executionDate: '', showNotes: false });
     }
   }, [editingCategory, open]);
 
@@ -43,14 +41,13 @@ export default function AddCategoryDialog({
         ...categoryData,
         defaultAmount: parseFloat(categoryData.defaultAmount) || 0,
         type: type,
-        accountId: categoryData.accountId === "" ? null : categoryData.accountId
       };
       onAdd(dataToSave);
     }
   };
 
   const handleClose = () => {
-    setCategoryData({ name: '', defaultAmount: '', accountId: null, executionDate: '', showNotes: false });
+    setCategoryData({ name: '', defaultAmount: '', executionDate: '', showNotes: false });
     onClose();
   };
 
@@ -89,31 +86,6 @@ export default function AddCategoryDialog({
               className="bg-white text-slate-900"
             />
           </div>
-
-          {accounts.length > 0 && (
-            <div>
-              <Label className="text-slate-700">חשבון (אופציונלי)</Label>
-              <Select
-                value={categoryData.accountId || ""}
-                onValueChange={(value) => setCategoryData({ ...categoryData, accountId: value })}
-              >
-                <SelectTrigger className="bg-white text-slate-900">
-                  <SelectValue placeholder="שיוך לחשבון ספציפי" />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  <SelectItem value="">ללא שיוך</SelectItem>
-                  {accounts.map((account) => (
-                    <SelectItem key={account.id} value={account.id.toString()}>
-                      {account.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-slate-500 mt-1">
-                אם תבחר, ברירת המחדל תשוייך לחשבון זה.
-              </p>
-            </div>
-          )}
 
           <div>
             <Label className="text-slate-700">תאריך ביצוע בחודש</Label>

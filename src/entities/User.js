@@ -7,6 +7,7 @@ const toProfile = (row) => row ? {
   householdId: row.household_id,
   role: row.role,
   lastResetCheck: row.last_reset_check,
+  lastUpdateTime: row.last_update_time,
 } : null
 
 export const User = {
@@ -40,6 +41,7 @@ export const User = {
     if (updates.householdId !== undefined) dbUpdates.household_id = updates.householdId
     if (updates.role !== undefined) dbUpdates.role = updates.role
     if (updates.lastResetCheck !== undefined) dbUpdates.last_reset_check = updates.lastResetCheck
+    if (updates.lastUpdateTime !== undefined) dbUpdates.last_update_time = updates.lastUpdateTime
     const { error } = await supabase
       .from('profiles').update(dbUpdates).eq('id', id)
     if (error) throw error

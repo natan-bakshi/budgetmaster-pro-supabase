@@ -12,11 +12,6 @@ export default function CategoryList({
   onDelete, 
   onMove
 }) {
-  const getAccountName = (accountId) => {
-    const account = accounts.find(acc => acc.id === accountId);
-    return account ? account.name : 'לא נבחר';
-  };
-
   const handleDelete = (categoryId) => {
     if (confirm('האם אתה בטוח שברצונך למחוק את הקטגוריה?')) {
       onDelete(type, categoryId);
@@ -82,18 +77,10 @@ export default function CategoryList({
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <div className="text-sm text-slate-600">סכום ברירת מחדל</div>
-                <div className="font-semibold">
-                  ₪{(category.defaultAmount || 0).toLocaleString()}
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-slate-600">חשבון</div>
-                <div className="font-medium">
-                  {category.accountId ? getAccountName(category.accountId) : 'לא נבחר'}
-                </div>
+            <div>
+              <div className="text-sm text-slate-600">סכום ברירת מחדל</div>
+              <div className="font-semibold">
+                ₪{(category.defaultAmount || 0).toLocaleString()}
               </div>
             </div>
 
@@ -104,7 +91,6 @@ export default function CategoryList({
                   {category.executionDate} בחודש
                 </Badge>
               )}
-
               {category.showNotes && (
                 <Badge variant="outline">
                   יש הערות

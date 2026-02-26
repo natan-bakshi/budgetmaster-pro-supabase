@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { User } from '@/entities/User';
 import { Category } from '@/entities/Category';
-import { Account } from '@/entities/Account';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, TrendingUp, TrendingDown } from "lucide-react";
@@ -14,7 +13,6 @@ import AddCategoryDialog from "@/components/budget/AddCategoryDialog";
 export default function Categories() {
   const [user, setUser] = useState(null);
   const [categories, setCategories] = useState({ income: [], expense: [] });
-  const [accounts, setAccounts] = useState([]);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogType, setDialogType] = useState('income');
   const [editingCategory, setEditingCategory] = useState(null);
@@ -44,15 +42,11 @@ export default function Categories() {
     setScrollPosition(window.pageYOffset);
     setIsLoading(true);
     try {
-      const [allCategories, allAccounts] = await Promise.all([
-        Category.filter({ householdId }, 'order'),
-        Account.filter({ householdId })
-      ]);
+      const allCategories = await Category.filter({ householdId }, 'order');
       setCategories({
         income: allCategories.filter(c => c.type === 'income'),
         expense: allCategories.filter(c => c.type === 'expense')
       });
-      setAccounts(allAccounts);
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -130,12 +124,18 @@ export default function Categories() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 bg-white shadow-sm">
-            <TabsTrigger value="income" className="flex items-center gap-2 text-green-700">
+          <TabsList className="grid w-full grid-cols-2 p-1 bg-slate-100 rounded-xl">
+            <TabsTrigger
+              value="income"
+              className="flex items-center gap-2 rounded-lg font-semibold data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-500"
+            >
               <TrendingUp className="w-4 h-4" />
               הכנסות ({categories.income.length})
             </TabsTrigger>
-            <TabsTrigger value="expense" className="flex items-center gap-2 text-red-700">
+            <TabsTrigger
+              value="expense"
+              className="flex items-center gap-2 rounded-lg font-semibold data-[state=active]:bg-red-500 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-500"
+            >
               <TrendingDown className="w-4 h-4" />
               הוצאות ({categories.expense.length})
             </TabsTrigger>
@@ -152,7 +152,7 @@ export default function Categories() {
             <CategoryList
               categories={categories.income}
               type="income"
-              accounts={accounts}
+              accounts={[]}
               onEdit={handleEditCategory}
               onDelete={deleteCategory}
               onMove={moveCategory}
@@ -170,7 +170,7 @@ export default function Categories() {
             <CategoryList
               categories={categories.expense}
               type="expense"
-              accounts={accounts}
+              accounts={[]}
               onEdit={handleEditCategory}
               onDelete={deleteCategory}
               onMove={moveCategory}
@@ -183,7 +183,7 @@ export default function Categories() {
           onClose={() => { setShowAddDialog(false); setEditingCategory(null); }}
           onAdd={addCategory}
           type={dialogType}
-          accounts={accounts}
+          accounts={[]}
           editingCategory={editingCategory}
         />
       </div>

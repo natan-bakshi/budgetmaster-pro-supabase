@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -7,7 +6,6 @@ import {
   Menu,
   X,
   Home,
-  CreditCard,
   Settings,
   History,
   Download,
@@ -20,11 +18,18 @@ import LoadingSpinner from './components/budget/LoadingSpinner';
 
 const navigationItems = [
   { title: "דף הבית", url: createPageUrl("Dashboard"), icon: Home, description: "מבט חודשי כללי" },
-  { title: "מבט לחשבון", url: createPageUrl("Accounts"), icon: CreditCard, description: "ניהול חשבונות בנק" },
   { title: "הגדרות קטגוריות", url: createPageUrl("Categories"), icon: Settings, description: "הגדרת הכנסות והוצאות" },
   { title: "ניהול משק בית", url: createPageUrl("Household"), icon: Users, description: "ניהול חברים והרשאות" },
   { title: "היסטוריה חודשית", url: createPageUrl("History"), icon: History, description: "צפייה ועריכת נתונים היסטוריים" },
   { title: "ייצוא נתונים", url: createPageUrl("Export"), icon: Download, description: "ייצוא ל-CSV" }
+];
+
+const bottomNavItems = [
+  { title: "בית", url: createPageUrl("Dashboard"), icon: Home },
+  { title: "קטגוריות", url: createPageUrl("Categories"), icon: Settings },
+  { title: "משק בית", url: createPageUrl("Household"), icon: Users },
+  { title: "היסטוריה", url: createPageUrl("History"), icon: History },
+  { title: "ייצוא", url: createPageUrl("Export"), icon: Download },
 ];
 
 export default function Layout({ children, currentPageName }) {
@@ -77,6 +82,7 @@ export default function Layout({ children, currentPageName }) {
         `}
       </style>
 
+      {/* Top header */}
       <header className="bg-white shadow-sm border-b border-slate-200 px-4 py-3 fixed top-0 right-0 left-0 z-40 h-16">
         <div className="flex items-center justify-between h-full">
           <div className="flex items-center gap-3">
@@ -96,10 +102,12 @@ export default function Layout({ children, currentPageName }) {
         </div>
       </header>
 
+      {/* Burger overlay */}
       {isMenuOpen && (
         <div className="fixed inset-0 z-50 menu-overlay" onClick={closeMenu} />
       )}
 
+      {/* Burger side panel */}
       {user && (
         <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-50 flex flex-col menu-panel overflow-y-auto">
           <div className="p-6 border-b border-slate-200 shrink-0">
@@ -150,9 +158,35 @@ export default function Layout({ children, currentPageName }) {
         </div>
       )}
 
-      <main className="pt-16">
+      {/* Main content: pad bottom on mobile for bottom nav */}
+      <main className="pt-16 pb-20 md:pb-0">
         {children}
       </main>
+
+      {/* Mobile bottom navigation */}
+      {user && (
+        <nav className="md:hidden fixed bottom-0 right-0 left-0 z-40 bg-white border-t border-slate-200 shadow-lg">
+          <div className="flex items-stretch h-16">
+            {bottomNavItems.map((item) => {
+              const isActive = location.pathname === item.url;
+              return (
+                <Link
+                  key={item.title}
+                  to={item.url}
+                  className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-xs transition-colors ${
+                    isActive
+                      ? 'text-blue-600 bg-blue-50'
+                      : 'text-slate-500 hover:text-blue-500 hover:bg-slate-50'
+                  }`}
+                >
+                  <item.icon className={`w-5 h-5 ${ isActive ? 'text-blue-600' : 'text-slate-400' }`} />
+                  <span className={`font-medium ${isActive ? 'text-blue-600' : ''}`}>{item.title}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

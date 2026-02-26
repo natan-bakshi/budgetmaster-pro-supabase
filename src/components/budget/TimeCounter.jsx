@@ -3,6 +3,41 @@ import { User } from '@/entities/User';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Clock } from "lucide-react";
 
+const getRelativeTime = (dateString) => {
+  if (!dateString) return null;
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffMonths = Math.floor(diffDays / 30);
+    const diffYears = Math.floor(diffDays / 365);
+
+    if (diffMinutes < 1) return 'לפני רגע';
+    if (diffMinutes < 60) return `לפני ${diffMinutes} דקות`;
+    if (diffHours < 24) {
+      if (diffHours === 1) return 'לפני שעה';
+      if (diffHours === 2) return 'לפני שעתיים';
+      return `לפני ${diffHours} שעות`;
+    }
+    if (diffDays < 30) {
+      if (diffDays === 1) return 'אתמול';
+      if (diffDays === 2) return 'לפני יומיים';
+      return `לפני ${diffDays} ימים`;
+    }
+    if (diffMonths < 12) {
+      if (diffMonths === 1) return 'בחודש שעבר';
+      return `לפני ${diffMonths} חודשים`;
+    }
+    if (diffYears === 1) return 'לפני שנה';
+    return `לפני ${diffYears} שנים`;
+  } catch {
+    return null;
+  }
+};
+
 export default function TimeCounter({ budgetPeriod }) {
   const [timeData, setTimeData] = useState({
     daysLeft: 0,
@@ -11,17 +46,30 @@ export default function TimeCounter({ budgetPeriod }) {
     nextReset: null
   });
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [relativeTime, setRelativeTime] = useState(null);
 
   useEffect(() => {
     const fetchLastUpdate = async () => {
       try {
         const user = await User.me();
         setLastUpdate(user.lastUpdateTime);
+        setRelativeTime(getRelativeTime(user.lastUpdateTime));
       } catch (error) {
         console.error('Error fetching user data:', error);
       }
     };
     fetchLastUpdate();
+    // Refresh relative time every minute
+    const interval = setInterval(() => {
+      setRelativeTime(prev => {
+        setLastUpdate(lu => {
+          setRelativeTime(getRelativeTime(lu));
+          return lu;
+        });
+        return prev;
+      });
+    }, 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -30,25 +78,19 @@ export default function TimeCounter({ budgetPeriod }) {
 
       const resetDay = budgetPeriod.resetDay || 1;
       const now = new Date();
-      // Use midnight of today for clean day calculations
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const currentDay = today.getDate();
 
-      // Find the next reset date
       let nextReset;
       if (currentDay < resetDay) {
-        // Reset is later this month
         nextReset = new Date(today.getFullYear(), today.getMonth(), resetDay);
       } else {
-        // Reset is next month
         nextReset = new Date(today.getFullYear(), today.getMonth() + 1, resetDay);
       }
 
-      // Days left = exact days from today midnight to next reset
       const daysLeft = Math.round((nextReset - today) / (1000 * 60 * 60 * 24));
       const weeksLeft = Math.ceil(daysLeft / 7);
 
-      // Progress: days passed / total days in this period
       const periodStart = new Date(
         budgetPeriod.start.getFullYear(),
         budgetPeriod.start.getMonth(),
@@ -62,14 +104,12 @@ export default function TimeCounter({ budgetPeriod }) {
     };
 
     calculateTimeLeft();
-    const interval = setInterval(calculateTimeLeft, 1000 * 60 * 60); // Update every hour
-
+    const interval = setInterval(calculateTimeLeft, 1000 * 60 * 60);
     return () => clearInterval(interval);
   }, [budgetPeriod]);
 
   const formatLastUpdate = (dateString) => {
-    if (!dateString) return 'אין עדכונים';
-    
+    if (!dateString) return null;
     try {
       const date = new Date(dateString);
       return {
@@ -85,7 +125,7 @@ export default function TimeCounter({ budgetPeriod }) {
         })
       };
     } catch {
-      return 'תאריך לא תקין';
+      return null;
     }
   };
 
@@ -122,9 +162,9 @@ export default function TimeCounter({ budgetPeriod }) {
               </div>
             )}
           </div>
-          
+
           <div className="w-full bg-purple-100 rounded-full h-2">
-            <div 
+            <div
               className="bg-purple-600 h-2 rounded-full transition-all duration-500"
               style={{ width: `${timeData.progress}%` }}
             />
@@ -144,18 +184,23 @@ export default function TimeCounter({ budgetPeriod }) {
         </CardHeader>
         <CardContent>
           <div className="text-center">
-            {typeof lastUpdateFormatted === 'object' ? (
+            {lastUpdateFormatted ? (
               <>
-                <div className="text-lg font-semibold text-indigo-800 mb-2">
+                <div className="text-lg font-semibold text-indigo-800 mb-1">
                   {lastUpdateFormatted.date}
                 </div>
-                <div className="text-sm text-indigo-600">
+                <div className="text-sm text-indigo-600 mb-2">
                   {lastUpdateFormatted.time}
                 </div>
+                {relativeTime && (
+                  <div className="inline-block bg-indigo-100 text-indigo-700 text-sm font-medium px-3 py-1 rounded-full">
+                    {relativeTime}
+                  </div>
+                )}
               </>
             ) : (
               <div className="text-lg font-semibold text-indigo-800">
-                {lastUpdateFormatted}
+                אין עדכונים
               </div>
             )}
           </div>

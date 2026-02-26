@@ -4,8 +4,6 @@ import { Category } from '@/entities/Category';
 import { CategoryInstance } from '@/entities/CategoryInstance';
 import { Household } from '@/entities/Household';
 import { MonthlyHistory } from '@/entities/MonthlyHistory';
-import { Transaction } from '@/entities/Transaction';
-import { Account } from '@/entities/Account';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, Settings } from "lucide-react";
 import { format } from 'date-fns';
@@ -90,53 +88,11 @@ export default function Dashboard() {
           }
         }
         await User.updateMyUserData({ lastResetCheck: now.toISOString() });
-        await executeScheduledTransactions(householdId, resetDay);
       }
       return resetDay;
     } catch (error) {
       console.error('Error during monthly reset check:', error);
       return 1;
-    }
-  };
-
-  const executeScheduledTransactions = async (householdId, resetDay) => {
-    try {
-      const categories = await Category.filter({ householdId });
-      const accounts = await Account.filter({ householdId });
-      for (const category of categories) {
-        if (category.accountId && category.defaultAmount && category.defaultAmount !== 0) {
-          const account = accounts.find(a => a.id === category.accountId);
-          if (!account) continue;
-          let transactionDate = new Date();
-          if (category.executionDate) {
-            const executionDay = parseInt(category.executionDate);
-            const { start: periodStart } = calculateBudgetPeriod(resetDay);
-            transactionDate = new Date(periodStart);
-            transactionDate.setDate(executionDay);
-            if (transactionDate < periodStart) {
-              transactionDate.setMonth(transactionDate.getMonth() + 1);
-            }
-          }
-          await Transaction.create({
-            categoryId: category.id,
-            accountId: category.accountId,
-            amount: category.type === 'expense' ? -Math.abs(category.defaultAmount) : Math.abs(category.defaultAmount),
-            date: transactionDate.toISOString(),
-            scheduledDate: transactionDate.toISOString(),
-            type: category.type,
-            householdId,
-            notes: `עסקה אוטומטית - ${category.name}`,
-            isAutomatic: true,
-            isExecuted: transactionDate <= new Date()
-          });
-          if (transactionDate <= new Date()) {
-            const newBalance = account.balance + (category.type === 'expense' ? -Math.abs(category.defaultAmount) : Math.abs(category.defaultAmount));
-            await Account.update(account.id, { balance: newBalance });
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error executing scheduled transactions:', error);
     }
   };
 

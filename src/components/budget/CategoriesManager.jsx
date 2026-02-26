@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, TrendingDown, Save, RotateCcw } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -29,12 +30,11 @@ const CategoryEntry = ({ category, instance, onUpdate }) => {
                 currentAmount: parseFloat(amount) || 0,
                 notes: notes
             });
-            
-            // Update user's last update time only on actual changes
+
             if (hasUnsavedChanges) {
                 await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
             }
-            
+
             onUpdate();
         } catch (error) {
             console.error('Error saving category:', error);
@@ -48,7 +48,7 @@ const CategoryEntry = ({ category, instance, onUpdate }) => {
                 currentAmount: category.defaultAmount || 0,
                 notes: ''
             });
-            
+
             await User.updateMyUserData({ lastUpdateTime: new Date().toISOString() });
             onUpdate();
         } catch (error) {
@@ -56,14 +56,9 @@ const CategoryEntry = ({ category, instance, onUpdate }) => {
         }
     };
 
-    const handleAmountFocus = (e) => {
-        e.target.select();
-    };
+    const handleAmountFocus = (e) => { e.target.select(); };
+    const handleNotesFocus = (e) => { e.target.select(); };
 
-    const handleNotesFocus = (e) => {
-        e.target.select();
-    };
-    
     const isIncome = category.type === 'income';
 
     return (
@@ -71,8 +66,8 @@ const CategoryEntry = ({ category, instance, onUpdate }) => {
             <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
                     <div className="flex items-center gap-2">
-                        {isIncome ? 
-                            <TrendingUp className="w-5 h-5 text-green-600"/> : 
+                        {isIncome ?
+                            <TrendingUp className="w-5 h-5 text-green-600"/> :
                             <TrendingDown className="w-5 h-5 text-red-600"/>
                         }
                         <div>
@@ -84,9 +79,9 @@ const CategoryEntry = ({ category, instance, onUpdate }) => {
                     </div>
                     <div className="flex gap-2">
                         {hasUnsavedChanges && (
-                            <Button 
-                                size="sm" 
-                                onClick={handleSave} 
+                            <Button
+                                size="sm"
+                                onClick={handleSave}
                                 className="bg-blue-600 hover:bg-blue-700"
                                 disabled={isSaving}
                             >
@@ -117,7 +112,7 @@ const CategoryEntry = ({ category, instance, onUpdate }) => {
                         onFocus={handleAmountFocus}
                     />
                 </div>
-                
+
                 {category.showNotes && (
                     <div>
                         <label className="text-sm font-medium text-slate-700">הערות</label>
@@ -138,9 +133,8 @@ const CategoryEntry = ({ category, instance, onUpdate }) => {
 export default function CategoriesManager({ user, categories, categoryInstances, onUpdate }) {
   const getInstanceForCategory = (categoryId) => {
     return categoryInstances.find(inst => inst.categoryId === categoryId);
-  }
+  };
 
-  // Sort categories by order field
   const sortedIncomeCategories = [...categories.income].sort((a, b) => (a.order || 0) - (b.order || 0));
   const sortedExpenseCategories = [...categories.expense].sort((a, b) => (a.order || 0) - (b.order || 0));
 
@@ -153,9 +147,25 @@ export default function CategoriesManager({ user, categories, categoryInstances,
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-xl font-semibold mb-4 text-green-800">הכנסות</h3>
+        <Tabs defaultValue="expense" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2 p-1 bg-slate-100 rounded-xl">
+            <TabsTrigger
+              value="income"
+              className="flex items-center gap-2 rounded-lg font-semibold data-[state=active]:bg-green-500 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-500"
+            >
+              <TrendingUp className="w-4 h-4" />
+              הכנסות ({sortedIncomeCategories.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="expense"
+              className="flex items-center gap-2 rounded-lg font-semibold data-[state=active]:bg-red-500 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-500"
+            >
+              <TrendingDown className="w-4 h-4" />
+              הוצאות ({sortedExpenseCategories.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="income">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {sortedIncomeCategories.map(category => {
                   const instance = getInstanceForCategory(category.id);
@@ -163,9 +173,9 @@ export default function CategoriesManager({ user, categories, categoryInstances,
                   return <CategoryEntry key={instance.id} category={category} instance={instance} onUpdate={onUpdate} />;
               })}
             </div>
-          </div>
-          <div>
-            <h3 className="text-xl font-semibold mb-4 text-red-800">הוצאות</h3>
+          </TabsContent>
+
+          <TabsContent value="expense">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {sortedExpenseCategories.map(category => {
                   const instance = getInstanceForCategory(category.id);
@@ -173,8 +183,8 @@ export default function CategoriesManager({ user, categories, categoryInstances,
                   return <CategoryEntry key={instance.id} category={category} instance={instance} onUpdate={onUpdate} />;
               })}
             </div>
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
