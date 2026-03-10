@@ -3,24 +3,36 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-api-key',
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return new Response('Unauthorized', { status: 401, headers: corsHeaders })
+    const apiKey = req.headers.get('x-api-key')
+    if (!apiKey) return new Response('Unauthorized', { status: 401, headers: corsHeaders })
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) return new Response('Unauthorized', { status: 401, headers: corsHeaders })
+    // Find profile by shortcut_api_key
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, household_id')
+      .eq('shortcut_api_key', apiKey)
+      .single()
+
+    if (profileError || !profile) {
+      return new Response('Unauthorized', { status: 401, headers: corsHeaders })
+    }
+
+    if (!profile.household_id) {
+      return new Response(JSON.stringify({ error: 'No household' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+    const householdId = profile.household_id
 
     const body = await req.json()
     const { categoryName, amount } = body
@@ -28,18 +40,6 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'categoryName and amount are required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    // Get householdId
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('household_id')
-      .eq('id', user.id)
-      .single()
-    if (!profile?.household_id) {
-      return new Response(JSON.stringify({ error: 'No household' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-    }
-    const householdId = profile.household_id
-
-    // Find category by name
     const { data: categories } = await supabase
       .from('categories')
       .select('id')
@@ -47,16 +47,15 @@ serve(async (req) => {
       .eq('type', 'expense')
       .ilike('name', categoryName)
       .limit(1)
+
     if (!categories || categories.length === 0) {
       return new Response(JSON.stringify({ error: 'Category not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
     const categoryId = categories[0].id
 
-    // Get current month string (YYYY-MM) — based on today
     const now = new Date()
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-    // Find current instance
     const { data: instances } = await supabase
       .from('category_instances')
       .select('id, current_amount')
@@ -68,28 +67,25 @@ serve(async (req) => {
     const delta = Number(amount)
 
     if (instances && instances.length > 0) {
-      const instance = instances[0]
-      const newAmount = (Number(instance.current_amount) || 0) + delta
+      const newAmount = (Number(instances[0].current_amount) || 0) + delta
       await supabase
         .from('category_instances')
         .update({ current_amount: newAmount })
-        .eq('id', instance.id)
+        .eq('id', instances[0].id)
       return new Response(
         JSON.stringify({ success: true, newAmount }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     } else {
-      // Instance doesn't exist yet — create it
-      const newAmount = delta
       await supabase.from('category_instances').insert({
         category_id: categoryId,
         household_id: householdId,
-        current_amount: newAmount,
+        current_amount: delta,
         month: currentMonth,
         notes: ''
       })
       return new Response(
-        JSON.stringify({ success: true, newAmount }),
+        JSON.stringify({ success: true, newAmount: delta }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

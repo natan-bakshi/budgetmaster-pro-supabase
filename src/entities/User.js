@@ -8,6 +8,7 @@ const toProfile = (row) => row ? {
   role: row.role,
   lastResetCheck: row.last_reset_check,
   lastUpdateTime: row.last_update_time,
+  shortcutApiKey: row.shortcut_api_key,
 } : null
 
 export const User = {
