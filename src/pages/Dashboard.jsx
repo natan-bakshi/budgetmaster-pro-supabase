@@ -14,6 +14,7 @@ import LoadingSpinner from '@/components/budget/LoadingSpinner';
 import OverviewCards from "@/components/budget/OverviewCards";
 import CategoriesManager from "@/components/budget/CategoriesManager";
 import TimeCounter from "@/components/budget/TimeCounter";
+import ApplePayShortcutBanner from "@/components/budget/ApplePayShortcutBanner";
 
 export default function Dashboard() {
   const cachedDash = appCache.getDashboardData();
@@ -239,6 +240,8 @@ export default function Dashboard() {
             {user.householdId ? 'זהו סיכום התקציב החודשי שלך.' : 'זהו החשבון האישי שלך.'}
           </p>
         </div>
+
+        <ApplePayShortcutBanner />
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 bg-white dark:bg-slate-800 shadow-sm">
