@@ -23,7 +23,6 @@ export default function Dashboard() {
   const [user, setUser] = useState(() => cachedUser);
   const [categories, setCategories] = useState(() => cachedDash?.categories || { income: [], expense: [] });
   const [categoryInstances, setCategoryInstances] = useState(() => cachedDash?.categoryInstances || []);
-  // Seed from localStorage-backed cache so value survives browser refresh
   const [lastUpdateTime, setLastUpdateTime] = useState(
     () => appCache.getLastUpdateTime() || cachedUser?.lastUpdateTime || null
   );
@@ -158,16 +157,12 @@ export default function Dashboard() {
         const hadCachedUser = !!appCache.getUser();
         const hadCachedDash = !!appCache.getDashboardData();
 
-        // Always fetch fresh user from DB so we get the latest last_update_time
-        // from the profiles table — this ensures other devices' updates are visible.
         const currentUser = await User.me();
         appCache.setUser(currentUser);
         setUser(currentUser);
 
-        // lastUpdateTime: take the most recent of DB value and localStorage value.
-        // DB value reflects changes by ANY household member from ANY device.
-        const cachedLut  = appCache.getLastUpdateTime();        // localStorage
-        const profileLut = currentUser.lastUpdateTime || null;   // profiles table (any device)
+        const cachedLut  = appCache.getLastUpdateTime();
+        const profileLut = currentUser.lastUpdateTime || null;
         const resolvedLut = (!cachedLut && !profileLut)
           ? null
           : (!cachedLut ? profileLut
@@ -199,7 +194,6 @@ export default function Dashboard() {
     return totals;
   };
 
-  // Called optimistically by CategoriesManager on every save/reset
   const handleOptimisticUpdate = useCallback(({ instanceId, newAmount, newNotes }) => {
     const now = new Date().toISOString();
     setCategoryInstances(prev => {
@@ -212,7 +206,6 @@ export default function Dashboard() {
       if (cached) appCache.setDashboardData({ ...cached, categoryInstances: updated, lastUpdateTime: now });
       return updated;
     });
-    // Update state + persist to localStorage + update in-memory user
     setLastUpdateTime(now);
     appCache.setLastUpdateTime(now);
     const cachedUser = appCache.getUser();
@@ -241,7 +234,7 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <ApplePayShortcutBanner />
+        <ApplePayShortcutBanner user={user} />
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 bg-white dark:bg-slate-800 shadow-sm">
