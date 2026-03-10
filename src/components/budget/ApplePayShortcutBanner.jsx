@@ -1,21 +1,20 @@
 import React, { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { X, Smartphone } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-const DISMISSED_KEY = 'shortcut_banner_dismissed';
+const DISMISSED_KEY = 'applepay_shortcut_dismissed';
 
 // Detect iOS (iPhone/iPad)
 const isIOS = () =>
-  /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-export default function ApplePayShortcutBanner({ supabaseUrl, anonKey }) {
+export default function ApplePayShortcutBanner({ supabaseUrl }) {
   const [dismissed, setDismissed] = useState(
     () => localStorage.getItem(DISMISSED_KEY) === '1'
   );
 
-  // Show only on iOS and only if not yet dismissed
+  // Only show on iOS devices
   if (!isIOS() || dismissed) return null;
 
   const handleDismiss = () => {
@@ -23,48 +22,36 @@ export default function ApplePayShortcutBanner({ supabaseUrl, anonKey }) {
     setDismissed(true);
   };
 
-  // Deep-link to the Shortcut file hosted in the repo (public folder)
-  const shortcutUrl = `${window.location.origin}/ApplePayBudget.shortcut`;
+  // The shortcut file URL — served from public folder
+  const shortcutUrl = `${window.location.origin}/BudgetMasterShortcut.shortcut`;
 
   return (
-    <Card className="border-blue-200 bg-blue-50 dark:bg-slate-700 dark:border-slate-600 mb-4">
-      <CardContent className="pt-4 pb-3">
-        <div className="flex items-start gap-3" dir="rtl">
-          <Smartphone className="w-6 h-6 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="font-semibold text-slate-800 dark:text-slate-100 text-sm mb-1">
-              הוסף עסקאות מהיר מ-Apple Pay 🍎
-            </p>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mb-3">
-              הורד קיצור דרך ל-iPhone — אחרי כל תשלום תוכל לתעד אותו בשתי הקשות.
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                size="sm"
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
-                onClick={() => window.open(shortcutUrl, '_blank')}
-              >
-                הורד את הקיצור דרך
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-xs h-8 text-slate-500"
-                onClick={handleDismiss}
-              >
-                לא עכשיו
-              </Button>
-            </div>
-          </div>
-          <button
-            onClick={handleDismiss}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            aria-label="סגור"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="relative bg-gradient-to-l from-blue-600 to-blue-500 text-white rounded-2xl p-4 mb-6 shadow-lg flex items-start gap-3" dir="rtl">
+      <button
+        onClick={handleDismiss}
+        className="absolute top-3 left-3 text-white/70 hover:text-white transition-colors"
+        aria-label="סגור"
+      >
+        <X className="w-4 h-4" />
+      </button>
+
+      <div className="shrink-0 bg-white/20 rounded-xl p-2">
+        <Smartphone className="w-6 h-6" />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-sm mb-0.5">הוסף עסקאות מהירות מ-Apple Pay 🍎</p>
+        <p className="text-xs text-white/80 mb-3 leading-relaxed">
+          שלם עם Apple Pay → קיצור דרך יפתח אוטומטית → בחר קטגוריה → הסכום יתעדכן במערכת
+        </p>
+        <Button
+          size="sm"
+          className="bg-white text-blue-600 hover:bg-blue-50 font-semibold text-xs h-8 px-4"
+          onClick={() => window.open(shortcutUrl, '_blank')}
+        >
+          הורד קיצור דרך
+        </Button>
+      </div>
+    </div>
   );
 }
